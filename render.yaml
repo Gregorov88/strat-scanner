@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: strat-scanner
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/status
+    autoDeploy: true
