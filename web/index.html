@@ -112,7 +112,7 @@ a{color:var(--acc)}
     <b>FTFC</b> — cena triggera po właściwej stronie otwarcia świec (D: D+W, W: W+M, M: M+Q).
     <b>Keltner</b> — świeca sygnałowa dotknęła kanału 0,5 (KC 20, ATR 10). <b>ATR</b> — wejście &lt; 0,618 ATR Saty od poprzedniego zamknięcia (D/W: Swing, M: Position).
     <b>Rynek / Sektor</b> — trend EMA10/20 SPY lub QQQ (surowce: DBC) oraz ETF sektora zgodny z kierunkiem. <b>Ocena</b> (liczba zgodnych warunków z 7: FVG, EMA, FTFC, Keltner, ATR, Rynek, Sektor): A — 6–7, B — 4–5, C — 3 i mniej.
-    <b>Opcja</b> — wg Twojego skryptu ibquery.py: delta 0,7 ± 0,05, ITM, wolumen ≥ 10, wygasanie 5–31 dni (setupy M: 45–120 dni). ✓ = płynna (OI &gt; 250 i Ext/Price &lt; 30%) — tę kupujesz; ⚠ = najlepsza dostępna, ale słaba; ✗ = brak. Liczba sztuk przy ryzyku 1000 $ (delta × odległość do SL).
+    <b>Opcja</b> — wg Twojego skryptu ibquery.py: delta 0,7 ± 0,05, ITM, wolumen ≥ 10, wygasanie 5–31 dni (setupy M: 45–120 dni). ✓ = płynna (OI &gt; 250 i Ext/Price &lt; 30%) — tę kupujesz; ⚠ = najlepsza dostępna, ale słaba; ✗ = brak.
     Tylko setupy przed wejściem. Cel = najbliższy pivot. Skan odświeża się sam co 30 min w czasie sesji USA. Narzędzie analityczne, nie rekomendacja.
   </div>
 </main>
@@ -221,7 +221,7 @@ function optVerdict(r, s) {
   const what = `${R} ${b.expiration.slice(8, 10)}.${b.expiration.slice(5, 7)}.${b.expiration.slice(0, 4)} strike ${fmt(b.strike)}`;
   const loss = Math.abs(b.delta || 0.7) * Math.abs(s.entry - s.sl) * 100, n = loss > 0 ? Math.floor(RISK / loss) : 0;
   const det = `delta ${fmt(Math.abs(b.delta), 2)} · cena ok. ${fmt(mid)} $ · OI ${b.oi} · wolumen ${b.volume} · Ext/Price ${fmt(b.ext_price, 1)}%${b.spread_pct != null ? " · spread " + fmt(b.spread_pct, 1) + "%" : ""}`;
-  const qty = n > 0 ? ` · ${n} szt. przy ryzyku ${RISK} $` : ` · 1 kontrakt to więcej niż ${RISK} $ ryzyka`;
+  const qty = "";   // liczba kontraktów przy ryzyku — na razie wyłączona
   if (b.green && !o.low_liq) return { c: "opY", short: `✓ Kup ${what}`, long: `✓ Płynna opcja wg Twojego skryptu (OI > 250, Ext/Price < 30%). Kup ${what} · ${det}${qty}.` };
   const why = [o.low_liq ? "wolumen < 10" : "", b.oi <= 250 ? "OI ≤ 250" : "", b.ext_price >= 30 ? "Ext/Price ≥ 30%" : ""].filter(Boolean).join(", ");
   return { c: "opP", short: `⚠ Słaba: ${what}`, long: `⚠ Najlepsza dostępna, ale nie spełnia skryptu (${why}). ${what} · ${det}${qty}.` };
