@@ -182,9 +182,13 @@ def options(q):
     cons, exps = contracts_for(stock, right, min_dte, max_dte, spot, find_otm, range_pct)
     raw = snapshot(cons, right)
     rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, min_vol, delta, tol)
+    low_liq = False
+    if not rows and min_vol > 0:
+        rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, 0, delta, tol)
+        low_liq = bool(rows)
     return {"ticker": tk, "right": right, "spot": round(spot, 2), "source": "ibkr",
             "expirations": [f"{e[:4]}-{e[4:6]}-{e[6:]}" for e in exps], "quoted": len(raw), "no_delta": no_delta,
-            "rows": rows, "best": pick_best(rows, delta), "asof": datetime.now().strftime("%Y-%m-%d %H:%M")}
+            "rows": rows, "best": pick_best(rows, delta), "low_liq": low_liq, "asof": datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 
 class H(BaseHTTPRequestHandler):

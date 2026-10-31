@@ -250,7 +250,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
       <div class="field"><label>Sektor</label><select id="sector" data-testid="select-sector"><option value="">Wszystkie sektory</option></select></div>
       <div class="field"><label>Trend rynku / sektora</label><select id="ctxf" data-testid="select-context">
         <option value="">Bez filtra</option><option value="mkt">Rynek zgodny</option><option value="sec">Sektor zgodny</option><option value="both">Rynek i sektor zgodne</option></select></div>
-      <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="yahoo">Cboe / Yahoo</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
+      <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="auto">Auto</button><button data-v="yahoo">Cboe</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
       <div class="field"><label>Autoodświeżanie</label><label class="toggle" data-testid="toggle-auto"><input type="checkbox" id="auto"><span class="sw"></span>co 30 min w sesji</label></div>
       <div class="field"><label>Eksport</label><a class="tv" id="csv" href="#" data-testid="link-export">Pobierz CSV</a></div>
     </div>
@@ -258,7 +258,8 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
   </section>
 
   <nav class="tabs" id="tabs">
-    <button data-v="setups" class="on" data-testid="tab-setups">Setupy</button>
+    <button data-v="okazje" data-testid="tab-okazje">Okazje<small id="n-okazje"></small></button>
+    <button data-v="setups" data-testid="tab-setups">Setupy</button>
     <button data-v="mkt" data-testid="tab-mkt">Rynek i sektory</button>
     <button data-v="weekly" data-testid="tab-weekly">Plan tygodniowy<small id="n-weekly"></small></button>
     <button data-v="f2" data-testid="tab-f2">F2 dzienny<small id="n-f2"></small></button>
@@ -397,7 +398,7 @@ async function load() {
     for (const r of d.results) r.setups.forEach((s, i) => S.rows.push({ ...s, r, idx: i }));
     $("#meta").innerHTML = d.generated_at ? `Skan: <b>${d.generated_at}</b>${d.auto ? " (auto)" : ""} · dane do <b>${d.data_date}</b> · ${d.count} spółek` : "Brak skanu — kliknij Skanuj";
     S.gen = d.generated_at; S.cache = {};
-    fillSectors(); render(); renderTab();
+    fillSectors(); render(); renderTab(); loadSrvOpts();
   } catch (e) {
     $("#tbody").innerHTML = `<tr><td colspan="16"><div class="empty"><h3>Serwer skanera jest niedostępny</h3>Spróbuj ponownie za chwilę.</div></td></tr>`;
   }
@@ -558,6 +559,7 @@ async function openDetail(t, setupIdx, keepTf) {
   drawChart(r, chartTf, su && su.tf === chartTf ? su : null);
   if (su && $("#optload")) $("#optload").onclick = () => loadOptions(r, su);
   if (su && S.optCache[optKey(r.ticker, su)]) showOptions(r, su, S.optCache[optKey(r.ticker, su)]);
+  else if (su && $("#optload")) loadOptions(r, su);
 }
 
 function drawChart(r, tf, su) {
@@ -593,21 +595,36 @@ function drawChart(r, tf, su) {
 }
 
 /* ======================= ustawienia ======================= */
-const DEF = { src: "yahoo", bridge: "http://127.0.0.1:8765", risk: 1000, prof: "20/50/100", delta: 0.7, tol: 0.05,
+const DEF = { v: 2, src: "auto", bridge: "http://127.0.0.1:8765", risk: 1000, prof: "20/50/100", delta: 0.7, tol: 0.05,
   min_dte: 5, max_dte: 31, oi: 0, vol: 10, range: 20, otm: false };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 S.cfg = { ...DEF, ...JSON.parse(store.get("ss_cfg") || "{}") };
-S.optCache = {}; S.optSel = {}; S.tab = "setups"; S.tsort = {};
+S.optCache = {}; S.optSel = {}; S.tab = "okazje"; S.tsort = {};
+S.of = { tf: "all", dir: "all", min: 4, trend: 1 };
 S.wf = { dir: "all", min: 4, trend: 1 }; S.ff = { dir: "all", ema: 4 }; S.mf = { dir: "all" }; S.bf = { tickers: "", years: 0 };
+try { const u = JSON.parse(store.get("ss_ui") || "{}"); ["wf", "ff", "mf", "of"].forEach(k => u[k] && Object.assign(S[k], u[k])); if (u.g) Object.assign(S.g, { uni: u.g.uni || "all", sector: u.g.sector || "", ctx: u.g.ctx || "" }); if (u.tab) S.tab = u.tab; } catch (e) {}
+if (S.cfg.v !== 2) { S.cfg.v = 2; S.cfg.src = "auto"; }
 const saveCfg = () => store.set("ss_cfg", JSON.stringify(S.cfg));
-const srcName = () => S.cfg.src === "ibkr" ? "IBKR" : "Cboe/Yahoo";
+S.bridgeOk = false;
+const useIbkr = () => S.cfg.src === "ibkr" || (S.cfg.src === "auto" && S.bridgeOk);
+const srcName = () => useIbkr() ? "IBKR" : "Cboe";
+async function detectBridge() {
+  if (S.cfg.src !== "auto") return;
+  const was = S.bridgeOk;
+  try { const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 1500);
+    const r = await fetch(S.cfg.bridge.replace(/\/$/, "") + "/health", { signal: ctl.signal }); clearTimeout(tm);
+    const j = await r.json(); S.bridgeOk = !!(r.ok && j.tws); } catch (e) { S.bridgeOk = false; }
+  if (was !== S.bridgeOk) { setSrc(S.cfg.src); }
+}
+/* zapamiętywanie filtrów */
+const saveUi = () => store.set("ss_ui", JSON.stringify({ g: S.g, wf: S.wf, ff: S.ff, mf: S.mf, of: S.of, tab: S.tab }));
 const optCfgTxt = () => `· delta ${S.cfg.delta} ± ${S.cfg.tol} · ${S.cfg.min_dte}–${S.cfg.max_dte} dni · OI ≥ ${S.cfg.oi} · wolumen ≥ ${S.cfg.vol} · ${S.cfg.otm ? "OTM" : "ITM"}`;
 function setSrc(v) {
   S.cfg.src = v; saveCfg();
   document.querySelectorAll("#osrc button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
-  $("#srchint").textContent = v === "ibkr" ? "wymaga mostu na PC z TWS" : "opóźnione ok. 15 min";
+  $("#srchint").textContent = v === "ibkr" ? "wymaga mostu na PC z TWS" : v === "auto" ? (S.bridgeOk ? "wykryto TWS — dane IBKR na żywo" : "Cboe; IBKR sam, gdy wykryje TWS") : "opóźnione ok. 15 min";
 }
-document.querySelectorAll("#osrc button").forEach(b => b.onclick = () => { setSrc(b.dataset.v); renderTab(); });
+document.querySelectorAll("#osrc button").forEach(b => b.onclick = () => { setSrc(b.dataset.v); detectBridge(); renderTab(); });
 setSrc(S.cfg.src);
 $("#sector").onchange = e => { S.g.sector = e.target.value; render(); renderTab(); };
 $("#ctxf").onchange = e => { S.g.ctx = e.target.value; render(); renderTab(); };
@@ -640,13 +657,17 @@ function fillSectors() {
 $("#auto").onchange = async e => { try { await fetch(API + "/api/auto/" + (e.target.checked ? 1 : 0), { method: "POST" }); } catch (_) {} };
 
 /* ======================= zakładki ======================= */
-document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("on")); b.classList.add("on");
-  S.tab = b.dataset.v;
+function showTab(v) {
+  if (!document.querySelector(`#tabs button[data-v="${v}"]`)) v = "okazje";
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+  S.tab = v;
   $("#tab-setups").style.display = S.tab === "setups" ? "" : "none";
   $("#tab-other").style.display = S.tab === "setups" ? "none" : "";
-  renderTab();
-});
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { showTab(b.dataset.v); renderTab(); });
+showTab(S.tab);
+$("#ctxf").value = S.g.ctx || "";
+document.querySelectorAll("#uni button").forEach(x => x.classList.toggle("on", x.dataset.v === S.g.uni));
 
 function tbl(id, cols, rows, onRow) {
   const st = S.tsort[id];
@@ -677,8 +698,9 @@ function optMini(t, x) {
   if (!res) return `<button class="btn" data-opt="1" data-testid="button-opt-${t}">Sprawdź</button>`;
   if (res.error) return `<span class="no" title="${res.error}">błąd</span> <button class="btn" data-opt="1">↻</button>`;
   const o = res.best;
-  if (!o) return `<span class="no">brak płynnych</span>`;
-  return `<span class="optmini mono ${o.green ? "pos" : ""}" title="OI ${o.oi} · Ext/Price ${o.ext_price}% · spread ${o.spread_pct ?? "—"}%">${o.expiration.slice(5)} ${o.strike}${res.right} Δ${fmt(Math.abs(o.delta), 2)} $${fmt(optMid(o))}${o.green ? " ✓" : ""}</span>`;
+  if (!o) return `<span class="no" title="Brak kontraktów z deltą ${S.cfg.delta}±${S.cfg.tol} w zakresie ${S.cfg.min_dte}–${S.cfg.max_dte} dni">brak opcji</span>`;
+  const ll = res.low_liq ? `<span class="hit" style="color:var(--gold)" title="Wolumen poniżej progu ${S.cfg.vol} — niska płynność">niska płynność</span>` : "";
+  return `<span class="optmini mono ${o.green && !res.low_liq ? "pos" : ""}" title="OI ${o.oi} · wolumen ${o.volume} · Ext/Price ${o.ext_price}% · spread ${o.spread_pct ?? "—"}%">${o.expiration.slice(5)} ${o.strike}${res.right} Δ${fmt(Math.abs(o.delta), 2)} $${fmt(optMid(o))}${o.green && !res.low_liq ? " ✓" : ""}</span>${ll}`;
 }
 const optKey = (t, su) => t + "|" + (su.dir === "long" ? "C" : "P");
 const optMid = o => o.bid != null ? (o.bid + o.ask) / 2 : o.last;
@@ -687,7 +709,7 @@ const optMid = o => o.bid != null ? (o.bid + o.ask) / 2 : o.last;
 async function fetchOptions(t, right) {
   const c = S.cfg;
   const q = new URLSearchParams({ ticker: t, type: right, delta: c.delta, tol: c.tol, min_dte: c.min_dte, max_dte: c.max_dte, oi: c.oi, vol: c.vol, range: c.range, otm: c.otm ? 1 : 0 });
-  if (c.src === "ibkr") {
+  if (useIbkr()) {
     try {
       const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 150000);
       const r = await fetch(c.bridge.replace(/\/$/, "") + "/options?" + q, { signal: ctl.signal }); clearTimeout(tm);
@@ -730,7 +752,7 @@ function showOptions(r, su, res) {
   if (res.error) { $("#optres").innerHTML = `<div class="warn">${res.error}</div>`; return; }
   const key = optKey(r.ticker, su);
   const sel = res.rows.find(o => o.contract === S.optSel[key]) || res.best;
-  const head = `<div class="note" style="margin-bottom:8px">${res.fallback ? `<div class="warn" style="margin-bottom:6px">${res.fallback}</div>` : ""}Źródło: <b>${{ibkr: "IBKR", cboe: "Cboe (delta z giełdy)", yahoo: "Yahoo (delta z Blacka-Scholesa)"}[res.source] || res.source}</b> · cena ${fmt(res.spot)} · ${res.asof} · wygasania: ${res.expirations.join(", ") || "brak w oknie"} · ${res.rows.length} z ${res.quoted} kontraktów spełnia filtry${res.no_delta ? ` · ${res.no_delta} bez delty` : ""}. Zielone: OI &gt; 250 i Ext/Price &lt; 30%. Kliknij wiersz, aby wybrać.</div>`;
+  const head = `<div class="note" style="margin-bottom:8px">${res.fallback ? `<div class="warn" style="margin-bottom:6px">${res.fallback}</div>` : ""}${res.low_liq ? `<div class="warn" style="margin-bottom:6px">Żaden kontrakt nie ma wolumenu ≥ ${S.cfg.vol} — pokazuję najbliższe z niską płynnością. Uważaj na spread.</div>` : ""}Źródło: <b>${{ibkr: "IBKR", cboe: "Cboe (delta z giełdy)", yahoo: "Yahoo (delta z Blacka-Scholesa)"}[res.source] || res.source}</b> · cena ${fmt(res.spot)} · ${res.asof} · wygasania: ${res.expirations.join(", ") || "brak w oknie"} · ${res.rows.length} z ${res.quoted} kontraktów spełnia filtry${res.no_delta ? ` · ${res.no_delta} bez delty` : ""}. Zielone: OI &gt; 250 i Ext/Price &lt; 30%. Kliknij wiersz, aby wybrać.</div>`;
   if (!res.rows.length) { $("#optres").innerHTML = head + `<div class="warn">Brak kontraktów dla tych filtrów. Przed otwarciem sesji ustaw wolumen 0 w Ustawieniach albo poszerz tolerancję delty.</div>`; return; }
   const tb = `<div class="oscroll"><table class="optt mono"><thead><tr><th>Wygasa</th><th>DTE</th><th>Strike</th><th>Cena</th><th>Bid</th><th>Ask</th><th>Spread %</th><th>OI</th><th>Vol</th><th>Wewn.</th><th>Zewn.</th><th>Ext/Int</th><th>Ext/Price</th><th>Delta</th><th>Kwot.</th></tr></thead><tbody>
     ${res.rows.map((o, i) => `<tr data-i="${i}" class="${o.green ? "gr" : ""} ${sel && o.contract === sel.contract ? "sel" : ""}"><td>${o.expiration}</td><td>${o.dte}</td><td>${fmt(o.strike)}</td><td>${fmt(o.last)}</td><td>${fmt(o.bid)}</td><td>${fmt(o.ask)}</td><td>${o.spread_pct == null ? "—" : fmt(o.spread_pct, 1)}</td><td>${o.oi.toLocaleString("pl-PL")}</td><td>${o.volume.toLocaleString("pl-PL")}</td><td>${fmt(o.intrinsic)}</td><td>${fmt(o.extrinsic)}</td><td>${fmt(o.ext_int, 1)}%</td><td>${fmt(o.ext_price, 1)}%</td><td>${o.delta == null ? "n/a" : fmt(o.delta, 3)}</td><td>${o.quote}</td></tr>`).join("")}
@@ -848,12 +870,13 @@ function renderMkt(el) {
 
 /* ======================= render zakładek ======================= */
 function renderTab() {
-  updateCounts();
+  updateCounts(); saveUi();
   if (S.tab === "setups") return;
   const el = $("#tab-other");
   if (S.tab === "cfg") return renderCfg(el);
   if (S.tab === "bt") return renderBt(el);
   if (!S.data) { el.innerHTML = `<div class="empty"><h3>Brak skanu</h3>Kliknij Skanuj rynek.</div>`; return; }
+  if (S.tab === "okazje") return renderOkazje(el);
   if (S.tab === "mkt") return renderMkt(el);
   if (S.tab === "weekly") return renderWeekly(el);
   if (S.tab === "f2") return renderF2(el);
@@ -885,8 +908,75 @@ function mfvgRows() {
   }
   return out.sort((a, b) => (b.w ? 1 : 0) - (a.w ? 1 : 0) || a.z.dist_pct - b.z.dist_pct);
 }
+function okRows() {
+  const o = S.of;
+  return (S.rows || []).filter(x => !x.triggered && !x.tp_hit && !x.sl_hit && (o.tf === "all" || x.tf === o.tf) &&
+    gOk(x.r) && ctxOk(x) && x.plan_score >= o.min && (!o.trend || x.plan.ema) && (o.dir === "all" || x.dir === o.dir))
+    .sort((a, b) => (b.plan_score + b.mkt_ok + b.sec_ok) - (a.plan_score + a.mkt_ok + a.sec_ok) || GR[b.grade] - GR[a.grade] || (b.rr_plan ?? 0) - (a.rr_plan ?? 0));
+}
+function nContracts(x) {
+  const res = S.optCache[optKey(x.r.ticker, x)];
+  if (!res || !res.best) return "—";
+  const p = planCalc(x, res.best, res.spot);
+  return p.n > 0 ? `${p.n} szt.` : `<span class="no" title="Strata na 1 kontrakt ≈ ${fmt(p.lossPer, 0)} $ > ryzyko ${S.cfg.risk} $">za drogi</span>`;
+}
+function renderOkazje(el) {
+  const rows = okRows();
+  const cols = [
+    { k: "t", l: "Spółka", f: tkCell, s: x => x.r.ticker }, { k: "sec", l: "Sektor", f: secCell, s: x => x.r.sector },
+    { k: "p", l: "Setup", f: x => dirEl(x.pattern, x.dir) + ` <span class="mono" style="color:var(--muted);font-size:11.5px">${x.tf}</span>`, s: x => x.tf + x.pattern },
+    { k: "plan", l: "Plan", t: "FVG · EMA · FTFC · Saty ATR · Keltner 0,5 · R:R ≥ 2", f: planDots, s: x => x.plan_score * 100 + (x.rr_plan || 0) },
+    { k: "g", l: "Ocena", f: x => gradeEl(x.grade), s: x => GR[x.grade] },
+    { k: "ctx", l: "Rynek · Sektor", f: x => ctxEl(x), s: x => x.mkt_ok + x.sec_ok },
+    { k: "kc", l: "KC", t: "Strefa ceny w kanale Keltnera interwału setupu", f: x => `<span style="font-size:11.5px;color:${x.kc_stretched ? "var(--gold)" : "var(--muted)"}">${kcShort(x.kc_zone)}</span>`, s: x => x.kc_pos ?? 9 },
+    { k: "entry", l: "Wejście", r: 1, f: x => fmt(x.entry), s: x => x.entry }, { k: "sl", l: "SL", r: 1, f: x => fmt(x.sl), s: x => x.sl },
+    { k: "tp", l: "Cel", r: 1, f: x => x.tp_plan == null ? "—" : fmt(x.tp_plan), s: x => x.tp_plan ?? -1 },
+    { k: "rr", l: "R:R", r: 1, f: x => x.rr_plan == null ? "—" : fmt(x.rr_plan), s: x => x.rr_plan ?? -1 },
+    { k: "dist", l: "Do wejścia", r: 1, f: x => (x.dist_entry_pct > 0 ? "+" : "") + fmt(x.dist_entry_pct) + "%", s: x => Math.abs(x.dist_entry_pct) },
+    optCol(), { k: "n", l: `Kontrakty (${S.cfg.risk} $)`, r: 1, f: nContracts }];
+  const T = tbl("okazje", cols, rows, x => openDetail(x.r.ticker, x.idx));
+  const O = S.data.opts_at ? ` Opcje policzone automatycznie ${S.data.opts_at}.` : "";
+  el.innerHTML = `<div class="sec-h"><h3>Najlepsze okazje teraz</h3>
+    ${chipsHtml("otf", [["all", "D + W"], ["D", "Dzienne"], ["W", "Tygodniowe"]], S.of.tf)}${dirFilter("odir", S.of.dir)}
+    ${chipsHtml("omin", [[3, "≥ 3/6"], [4, "≥ 4/6"], [5, "≥ 5/6"]], S.of.min)}
+    ${chipsHtml("otr", [[1, "W trendzie EMA"], [0, "Bez filtra trendu"]], S.of.trend)}
+    <div class="desc">Wszystko liczy się samo: skan co 30 min w sesji, ocena planu, trend rynku i sektora oraz najlepsza opcja wg logiki ibquery.py (delta ${S.cfg.delta}, ${S.cfg.min_dte}–${S.cfg.max_dte} dni) z liczbą kontraktów dla ryzyka ${S.cfg.risk} $.${O} Tylko setupy przed wejściem. Kliknij wiersz po pełny plan i treść zleceń. Filtry zmieniasz opcjonalnie — aplikacja je zapamięta.</div></div>` + T.html;
+  T.bind(); bindChips("otf", v => S.of.tf = v); bindChips("odir", v => S.of.dir = v); bindChips("omin", v => S.of.min = +v); bindChips("otr", v => S.of.trend = +v);
+  autoOpt(rows.slice(0, 15));
+}
+/* automatyczne dociąganie opcji dla widocznych pozycji (bez klikania) */
+S.optQ = new Set(); S.optBusy = false;
+function autoOpt(rows) {
+  rows.forEach(x => { const k = optKey(x.r.ticker, x); if (!S.optCache[k]) S.optQ.add(JSON.stringify([x.r.ticker, x.dir === "long" ? "C" : "P"])); });
+  if (S.optBusy) return;
+  (async () => {
+    S.optBusy = true;
+    while (S.optQ.size) {
+      const it = S.optQ.values().next().value; S.optQ.delete(it);
+      const [t, rt] = JSON.parse(it), k = t + "|" + rt;
+      if (S.optCache[k]) continue;
+      try { S.optCache[k] = await fetchOptions(t, rt); } catch (e) { S.optCache[k] = { error: String(e.message || e) }; }
+      if (S.tab !== "setups" && !$("#drawer").classList.contains("on")) renderTab();
+    }
+    S.optBusy = false;
+  })();
+}
+const sameParams = p => p && Math.abs(p.delta - S.cfg.delta) < 1e-9 && Math.abs(p.tol - S.cfg.tol) < 1e-9 && p.min_dte === S.cfg.min_dte && p.max_dte === S.cfg.max_dte &&
+  p.min_oi === S.cfg.oi && p.min_vol === S.cfg.vol && Math.abs(p.range_pct - S.cfg.range) < 1e-9 && p.find_otm === !!S.cfg.otm;
+async function loadSrvOpts() {
+  if (useIbkr()) return;                       // przy TWS liczymy na żywo z IBKR
+  try {
+    const o = await (await fetch(API + "/api/opts")).json();
+    if (!o.generated_at || !sameParams(o.params)) return;
+    for (const [k, v] of Object.entries(o.data)) if (!S.optCache[k]) S.optCache[k] = v;
+    if (S.data) S.data.opts_at = o.generated_at;
+    S.optsGen = o.generated_at;
+    if (!$("#drawer").classList.contains("on")) renderTab();
+  } catch (e) {}
+}
 function updateCounts() {
   if (!S.data) return;
+  $("#n-okazje").textContent = okRows().length;
   $("#n-weekly").textContent = weeklyRows().length; $("#n-f2").textContent = f2Rows().length; $("#n-mfvg").textContent = mfvgRows().length;
 }
 const secCell = x => `<span style="font-size:12.5px;color:var(--muted)">${x.r.sector || "—"}</span>`;
@@ -912,6 +1002,7 @@ function renderWeekly(el) {
     <div class="desc">Zadania 5.1–8.1: porównanie spółek po FVG W/M, EMA10/20 W/M, setupie Strat, pozycji w Saty ATR (M), Keltner 0,5 i R:R. Kolumna Opcja pokazuje najlepszy kontrakt (delta ${S.cfg.delta}, ${S.cfg.min_dte}–${S.cfg.max_dte} dni). Kliknij wiersz po pełny plan pozycji i treść zleceń.</div></div>` + T.html;
   T.bind(); bindChips("wdir", v => S.wf.dir = v); bindChips("wmin", v => S.wf.min = +v); bindChips("wtr", v => S.wf.trend = +v);
   $("#wbatch").onclick = () => batchOpt(rows.slice(0, 10), $("#wbatch"));
+  autoOpt(rows.slice(0, 10));
 }
 function renderF2(el) {
   const rows = f2Rows();
@@ -930,6 +1021,7 @@ function renderF2(el) {
     <span class="clabel">EMA20</span>${chipsHtml("fema", [[2, "≤ 2%"], [4, "≤ 4%"], [99, "Wszystkie"]], S.ff.ema)}
     <div class="desc">Zadania 5.2–8.2: sprawdzaj w końcówce sesji (21:30–22:00). „W trakcie” = świeca F2 jeszcze się formuje; po zamknięciu przechodzi w „Oczekuje”. Trend = EMA10/20 D. Cel = pivot, a bez pivota najbliższy poziom Saty ATR. SL = negacja świecy F2.</div></div>` + T.html;
   T.bind(); bindChips("fdir2", v => S.ff.dir = v); bindChips("fema", v => S.ff.ema = +v);
+  autoOpt(rows.slice(0, 10));
 }
 function scenario(x) {
   const r = x.r, z = x.z, L = x.dir === "long";
@@ -1035,6 +1127,8 @@ async function statusTick(first) {
     $("#auto").checked = !!s.auto_refresh;
     if (s.running && !$("#scan").disabled) { $("#scan").disabled = true; $("#scanlbl").textContent = s.auto ? "Odświeżanie…" : "Skanowanie…"; $("#prog").classList.add("on"); poll(); }
     else if (!s.running && s.generated_at && s.generated_at !== S.gen && !first) load();
+    if (s.opts && s.opts.generated_at && s.opts.generated_at !== S.optsGen) { if (S.optsGen) S.optCache = {}; loadSrvOpts(); }
+    detectBridge();
   } catch (e) {}
 }
 setInterval(statusTick, 60000);

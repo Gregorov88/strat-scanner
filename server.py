@@ -43,6 +43,44 @@ def _load_bt():
 
 
 bt = _load_bt()
+OPT_PARAMS = dict(delta=0.7, tol=0.05, min_dte=5, max_dte=31, min_oi=0, min_vol=10, range_pct=20.0, find_otm=False)
+OPTS = {"generated_at": None, "scan": None, "params": OPT_PARAMS, "data": {}}
+opt_state = {"running": False, "done": 0, "total": 0}
+
+
+def _opt_candidates(sc, cap=60):
+    """Setupy, dla których z automatu liczę najlepszą opcję: oczekujące, plan ≥ 4/6 lub ocena A."""
+    c = []
+    for r in sc.get("results", []):
+        for su in r["setups"]:
+            if su.get("triggered") or su.get("tp_hit") or su.get("sl_hit"):
+                continue
+            if su.get("plan_score", 0) >= 4 or su.get("grade") == "A":
+                c.append((su.get("plan_score", 0) + (1 if su.get("mkt_ok") else 0) + (1 if su.get("sec_ok") else 0),
+                          r["ticker"], "C" if su["dir"] == "long" else "P"))
+    c.sort(reverse=True)
+    seen, out = set(), []
+    for _, t, rt in c:
+        if (t, rt) not in seen:
+            seen.add((t, rt))
+            out.append((t, rt))
+    return out[:cap]
+
+
+def _precompute_options(sc):
+    cand = _opt_candidates(sc)
+    opt_state.update(running=True, done=0, total=len(cand))
+    data = {}
+    for i, (t, rt) in enumerate(cand):
+        try:
+            r = opt.delayed_chain(t, right=rt, **OPT_PARAMS)
+            data[f"{t}|{rt}"] = {**r, "rows": r["rows"][:12]}
+        except Exception as e:
+            data[f"{t}|{rt}"] = {"error": str(e)}
+        opt_state["done"] = i + 1
+    OPTS.update(generated_at=datetime.now(WAW).strftime("%Y-%m-%d %H:%M"), scan=sc.get("generated_at"), data=data)
+    opt_state["running"] = False
+    gc.collect()
 bt_agg_cache = {}
 lock = threading.Lock()
 AUTO = {"enabled": os.getenv("AUTO_REFRESH", "1") == "1", "every_min": 30, "last": None}
@@ -91,10 +129,14 @@ def worker(req: ScanReq, auto=False):
         today = datetime.now(WAW).strftime("%Y-%m-%d")
         del data
         gc.collect()
-        if not bt or bt.get("v") != backtest.VERSION or not str(bt.get("generated_at", "")).startswith(today):
-            ctxs = set(scanner.CONTEXT_TICKERS)
-            data = {k: v for k, v in data_store.STORE["data"].items() if k not in ctxs}
-            threading.Thread(target=_run_backtest, args=(data,), daemon=True).start()
+        need_bt = not bt or bt.get("v") != backtest.VERSION or not str(bt.get("generated_at", "")).startswith(today)
+
+        def after(sc=r, need_bt=need_bt):
+            _precompute_options(sc)          # najpierw opcje dla najlepszych setupów (z automatu)
+            if need_bt:
+                ctxs = set(scanner.CONTEXT_TICKERS)
+                _run_backtest({k: v for k, v in data_store.STORE["data"].items() if k not in ctxs})
+        threading.Thread(target=after, daemon=True).start()
     except Exception as e:
         state["error"] = str(e)
     finally:
@@ -139,7 +181,13 @@ def start(req: ScanReq):
 def status():
     return {**state, "generated_at": scan["generated_at"] if scan else None,
             "data": data_store.info(), "auto_refresh": AUTO["enabled"],
-            "backtest": {**bt_state, "generated_at": bt.get("generated_at") if bt else None}}
+            "backtest": {**bt_state, "generated_at": bt.get("generated_at") if bt else None},
+            "opts": {**opt_state, "generated_at": OPTS["generated_at"]}}
+
+
+@app.get("/api/opts")
+def opts_ep():
+    return OPTS
 
 
 @app.post("/api/auto/{on}")

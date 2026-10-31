@@ -148,17 +148,37 @@ def yahoo_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: f
                 "delta": round(dl, 3) if dl is not None else None, "iv": round(iv * 100, 1) if iv else None,
             })
     rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, min_vol, delta, tol)
+    low_liq = False
+    if not rows and min_vol > 0:
+        # nic nie spełnia progu wolumenu — pokaż najbliższe kontrakty z ostrzeżeniem
+        rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, 0, delta, tol)
+        low_liq = bool(rows)
     return {"ticker": ticker, "right": right, "spot": round(spot, 2), "source": "yahoo",
             "expirations": [e for e, _ in exps], "quoted": len(raw), "no_delta": no_delta,
-            "rows": rows, "best": pick_best(rows, delta),
+            "rows": rows, "best": pick_best(rows, delta), "low_liq": low_liq,
             "asof": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")}
 
 
+_last_call = [0.0]
+
+
 def _get_json(url):
+    """GET z ograniczeniem tempa (Cboe zwraca 429 przy zbyt wielu zapytaniach) i ponawianiem."""
+    import time as _t
     import requests
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (StratScanner)"}, timeout=20, allow_redirects=True)
-    r.raise_for_status()
-    return r.json()
+    for wait in (0, 3, 8, 20):
+        if wait:
+            _t.sleep(wait)
+        gap = _t.time() - _last_call[0]
+        if gap < 1.2:
+            _t.sleep(1.2 - gap)
+        _last_call[0] = _t.time()
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (StratScanner)"}, timeout=20, allow_redirects=True)
+        if r.status_code == 429:
+            continue
+        r.raise_for_status()
+        return r.json()
+    raise RuntimeError("Cboe: limit zapytań (429), spróbuj za chwilę")
 
 
 def cboe_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: float = 0.05,
@@ -166,15 +186,19 @@ def cboe_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: fl
                range_pct: float = 30.0, find_otm: bool = False) -> dict:
     """Opcje z publicznego API Cboe (opóźnione ~15 min) — z prawdziwymi grekami (delta, IV)."""
     import re
-    d = None
-    for sym in dict.fromkeys([ticker.upper(), ticker.upper().replace(".", ""), ticker.upper().replace(".", "/")]):
+    d, err = None, "brak danych"
+    t0 = ticker.upper()
+    for sym in dict.fromkeys([t0, t0.replace(".", "").replace("-", ""), t0.replace("-", ".")]):
         try:
             d = _get_json(f"https://cdn.cboe.com/api/global/delayed_quotes/options/{sym}.json")["data"]
             break
-        except Exception:
+        except Exception as e:
+            err = str(e)
+            if "429" in err:
+                break
             continue
     if not d:
-        raise RuntimeError("Cboe: brak danych")
+        raise RuntimeError(f"Cboe: {err}")
     spot = float(d.get("current_price") or d.get("close"))
     today = datetime.now(NY).date()
     lo, hi = spot * (1 - range_pct / 100), spot * (1 + range_pct / 100)
@@ -220,9 +244,14 @@ def cboe_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: fl
             "delta": round(dl, 3) if dl is not None else None, "iv": round(iv * 100, 1) if iv else None,
         })
     rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, min_vol, delta, tol)
+    low_liq = False
+    if not rows and min_vol > 0:
+        # nic nie spełnia progu wolumenu — pokaż najbliższe kontrakty z ostrzeżeniem
+        rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, 0, delta, tol)
+        low_liq = bool(rows)
     return {"ticker": ticker, "right": right, "spot": round(spot, 2), "source": "cboe",
             "expirations": sorted(exps), "quoted": len(raw), "no_delta": no_delta,
-            "rows": rows, "best": pick_best(rows, delta),
+            "rows": rows, "best": pick_best(rows, delta), "low_liq": low_liq,
             "asof": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")}
 
 
