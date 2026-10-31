@@ -68,6 +68,17 @@ a{color:var(--acc)}
 .chk .k{display:none}
 @media (max-width:820px){.chk .k{display:inline;font-size:11px;color:var(--muted);margin-right:2px}.chk span.w{display:inline-flex;align-items:center;gap:3px}}
 .sel{background:var(--bg,#0d1117);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;min-width:260px;max-width:100%}
+.top{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:16px;align-items:start}
+.top .panel{margin-bottom:16px}
+.trends{gap:4px;padding:12px 14px}
+.trends table{background:none;border:0;border-radius:0}
+.trends th,.trends td{padding:3px 6px;font-size:12.5px;border-bottom:1px solid var(--line)}
+.trends th{font-size:11px}
+.trends .h{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between}
+.trends tr.sx{cursor:pointer}.trends tr.sx:hover td{background:#1a2029}.trends tr.cur td{background:rgba(229,179,59,.14)}
+.tu{color:var(--ok);font-weight:800}.td{color:var(--no);font-weight:800}.tm{color:var(--part);font-weight:800}
+.pp{color:var(--ok)}.pn{color:var(--no)}
+@media (max-width:1100px){.top{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -79,6 +90,7 @@ a{color:var(--acc)}
   </header>
   <div class="prog" id="prog"><i></i></div>
 
+  <div class="top">
   <section class="panel">
     <div class="row"><span class="lbl">Rynek</span><span id="f-uni"></span></div>
     <div class="row"><span class="lbl">Setup</span><span id="f-pat"></span></div>
@@ -88,6 +100,8 @@ a{color:var(--acc)}
     <div class="row"><span class="lbl">Warunki</span><span id="f-min"></span></div>
     <div class="row"><span class="lbl">Sektor</span><select id="f-sec" class="sel" data-testid="select-sector"></select></div>
   </section>
+  <aside class="panel trends" id="trends" data-testid="panel-trends"></aside>
+  </div>
 
   <p class="sum" id="sum"></p>
   <div id="out"></div>
@@ -128,7 +142,7 @@ function renderFilters() {
   chips("#f-min", [["0", "Wszystkie"], ["3", "min. 3"], ["4", "min. 4"], ["5", "min. 5"], ["6", "min. 6"], ["7", "wszystkie 7"]], v => String(F.min) === v, v => F.min = +v);
 }
 
-const SECPL = { "Information Technology": "Technologia", "Financials": "Finanse", "Health Care": "Ochrona zdrowia", "Industrials": "Przemysł", "Consumer Discretionary": "Dobra luksusowe", "Consumer Staples": "Dobra podstawowe", "Utilities": "Użyteczność publiczna", "Real Estate": "Nieruchomości", "Materials": "Materiały", "Communication Services": "Komunikacja", "Energy": "Energetyka" };
+const SECPL = { "Information Technology": "Technologia", "Financials": "Finanse", "Health Care": "Ochrona zdrowia", "Industrials": "Przemysł", "Consumer Discretionary": "Dobra cykliczne", "Consumer Staples": "Dobra podstawowe", "Utilities": "Użyteczność publiczna", "Real Estate": "Nieruchomości", "Materials": "Materiały", "Communication Services": "Komunikacja", "Energy": "Energetyka" };
 const secLabel = r => r.sec_etf ? `${SECPL[r.sector] || r.sector} — ${r.sec_etf}` : `Surowce: ${r.sector}`;
 function renderSec() {
   const el = $("#f-sec"); if (!el) return;
@@ -137,7 +151,22 @@ function renderSec() {
   const opts = [...m.entries()].sort((a, b) => (b[1].etf - a[1].etf) || a[1].l.localeCompare(b[1].l, "pl"));
   if (F.sec && !m.has(F.sec)) F.sec = "";
   el.innerHTML = `<option value="">Wszystkie sektory</option>` + opts.map(([k, v]) => `<option value="${k}" ${F.sec === k ? "selected" : ""}>${v.l} (${v.n})</option>`).join("");
-  el.onchange = () => { F.sec = el.value; store.set("ss_simple", F); render(); };
+  el.onchange = () => { F.sec = el.value; store.set("ss_simple", F); renderTrends(); render(); };
+  renderTrends();
+}
+const TA = t => t === "up" ? `<span class="tu" title="wzrostowy">▲</span>` : t === "down" ? `<span class="td" title="spadkowy">▼</span>` : `<span class="tm" title="mieszany">◆</span>`;
+const pct = v => v == null ? "—" : `<span class="${v >= 0 ? "pp" : "pn"}">${v > 0 ? "+" : ""}${fmt(v, 1)}%</span>`;
+function renderTrends() {
+  const el = $("#trends"), c = DATA && DATA.context; if (!el) return;
+  if (!c) { el.innerHTML = `<div class="h">Trendy</div><div class="meta">Brak danych</div>`; return; }
+  const hd = `<tr><th></th><th class="c">D</th><th class="c">W</th><th class="c">M</th><th class="r">1 dz.</th><th class="r">1 mies.</th></tr>`;
+  const row = (x, label, cls = "", sec) => `<tr class="${cls}" ${sec ? `data-sec="${sec}"` : ""}><td><b>${x.ticker}</b> <span class="meta">${label}</span></td><td class="c">${TA(x.trend_D)}</td><td class="c">${TA(x.trend_W)}</td><td class="c">${TA(x.trend_M)}</td><td class="r">${pct(x.chg)}</td><td class="r">${pct(x.m1)}</td></tr>`;
+  el.innerHTML = `<div class="h"><span>Rynki</span><span>EMA 10/20: D=D+W · W=W+M · M=M+Q</span></div>
+    <table>${hd}${c.market.map(x => row(x, x.name)).join("")}</table>
+    <div class="h" style="margin-top:8px"><span>Sektory</span><span>kliknij, aby filtrować</span></div>
+    <table>${hd}${c.sectors.map(x => row(x, SECPL[x.name] || x.name, "sx" + (F.sec === x.name ? " cur" : ""), x.name)).join("")}</table>
+    <div class="meta" style="margin-top:4px">▲ wzrostowy · ▼ spadkowy · ◆ mieszany</div>`;
+  el.querySelectorAll("tr.sx").forEach(tr => tr.onclick = () => { F.sec = F.sec === tr.dataset.sec ? "" : tr.dataset.sec; store.set("ss_simple", F); renderSec(); render(); });
 }
 const TRT = { D: "D+W", W: "W+M", M: "M+Q" };
 const TRN = { up: "wzrostowy", down: "spadkowy", mixed: "mieszany" };

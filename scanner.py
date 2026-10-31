@@ -50,7 +50,8 @@ SECTOR_ETF = {"Information Technology": "XLK", "Financials": "XLF", "Health Care
               "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Energy": "XLE",
               "Industrials": "XLI", "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE",
               "Communication Services": "XLC"}
-MARKET_ETF = {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "DBC": "Surowce (indeks DBC)"}
+MARKET_ETF = {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "ONEQ": "Nasdaq Composite", "DIA": "Dow Jones 30",
+              "IWM": "Russell 2000", "DBC": "Surowce (indeks DBC)"}
 
 # Surowce: kontrakty ciągłe z Yahoo (=F) + ETF-y. disp = symbol jak w TradingView, tv = symbol do linku.
 COMMODITIES = [
