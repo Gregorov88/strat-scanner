@@ -111,7 +111,7 @@ a{color:var(--acc)}
     <b>EMA</b> — EMA10 nad EMA20 (long) lub pod (short): D na D+W+M, W na W+M+Q, M na M+Q.
     <b>FTFC</b> — cena triggera po właściwej stronie otwarcia świec (D: D+W, W: W+M, M: M+Q).
     <b>Keltner</b> — świeca sygnałowa dotknęła kanału 0,5 (KC 20, ATR 10). <b>ATR</b> — wejście &lt; 0,618 ATR Saty od poprzedniego zamknięcia (D/W: Swing, M: Position).
-    <b>Rynek / Sektor</b> — trend EMA10/20 SPY lub QQQ (surowce: DBC) oraz ETF sektora zgodny z kierunkiem. <b>Ocena</b>: A — EMA, FTFC i FVG; B — dwa z nich; C — jeden.
+    <b>Rynek / Sektor</b> — trend EMA10/20 SPY lub QQQ (surowce: DBC) oraz ETF sektora zgodny z kierunkiem. <b>Ocena</b> (liczba zgodnych warunków z 7: FVG, EMA, FTFC, Keltner, ATR, Rynek, Sektor): A — 6–7, B — 4–5, C — 3 i mniej.
     <b>Opcja</b> — wg Twojego skryptu ibquery.py: delta 0,7 ± 0,05, ITM, wolumen ≥ 10, wygasanie 5–31 dni (setupy M: 45–120 dni). ✓ = płynna (OI &gt; 250 i Ext/Price &lt; 30%) — tę kupujesz; ⚠ = najlepsza dostępna, ale słaba; ✗ = brak. Liczba sztuk przy ryzyku 1000 $ (delta × odległość do SL).
     Tylko setupy przed wejściem. Cel = najbliższy pivot. Skan odświeża się sam co 30 min w czasie sesji USA. Narzędzie analityczne, nie rekomendacja.
   </div>
@@ -137,7 +137,7 @@ function renderFilters() {
   chips("#f-pat", PATS.map(([p, d]) => [p, p, d === "long" ? "long" : "short"]), v => F.pat.includes(v), v => F.pat = toggle(F.pat, v));
   chips("#f-tf", [["D", "Dzienny"], ["W", "Tygodniowy"], ["M", "Miesięczny"]], v => F.tf.includes(v), v => F.tf = toggle(F.tf, v));
   chips("#f-dir", [["long", "Long"], ["short", "Short"], ["both", "Oba"]], v => F.dir === v, v => F.dir = v);
-  chips("#f-gr", [["A", "A", "EMA+FTFC+FVG"], ["B", "B", "dwa z trzech"], ["C", "C", "jeden"]], v => F.gr.includes(v), v => F.gr = toggle(F.gr, v));
+  chips("#f-gr", [["A", "A", "6–7 warunków"], ["B", "B", "4–5"], ["C", "C", "3 i mniej"]], v => F.gr.includes(v), v => F.gr = toggle(F.gr, v));
   renderSec();
   chips("#f-min", [["0", "Wszystkie"], ["3", "min. 3"], ["4", "min. 4"], ["5", "min. 5"], ["6", "min. 6"], ["7", "wszystkie 7"]], v => String(F.min) === v, v => F.min = +v);
 }
@@ -197,14 +197,15 @@ function rows() {
       if (s.triggered || s.tp_hit || s.sl_hit) continue;
       if (!F.pat.includes(s.pattern) || !F.tf.includes(s.tf)) continue;
       if (F.dir !== "both" && s.dir !== F.dir) continue;
-      if (!F.gr.includes(s.grade)) continue;
       const ck = checks(r, s), n = ck.filter(c => c[1] === true).length, tot = ck.filter(c => c[1] != null).length;
+      const g = n >= 6 ? "A" : n >= 4 ? "B" : "C";   // ocena wg liczby zgodnych warunków (z 7)
+      if (!F.gr.includes(g)) continue;
       if (F.min && n < Math.min(F.min, tot)) continue;
-      out.push({ r, s, ck, n, tot });
+      out.push({ r, s, ck, n, tot, g });
     }
   }
   const G = { A: 3, B: 2, C: 1 };
-  return out.sort((a, b) => (b.n / b.tot) - (a.n / a.tot) || G[b.s.grade] - G[a.s.grade] || (b.s.rr_plan || 0) - (a.s.rr_plan || 0));
+  return out.sort((a, b) => G[b.g] - G[a.g] || b.n - a.n || (b.s.rr_plan || 0) - (a.s.rr_plan || 0));
 }
 
 const RISK = 1000;
@@ -228,7 +229,7 @@ function optVerdict(r, s) {
 
 function render() {
   const L = rows();
-  const nA = L.filter(x => x.s.grade === "A").length;
+  const nA = L.filter(x => x.g === "A").length;
   $("#sum").textContent = DATA ? `${L.length} setupów spełnia Twoje ustawienia (ocena A: ${nA}). Najlepsze na górze. Kliknij wiersz po szczegóły.` : "";
   if (!DATA) { $("#out").innerHTML = `<div class="empty">Brak wyników — kliknij „Skanuj rynek”.</div>`; return; }
   if (!L.length) { $("#out").innerHTML = `<div class="empty">Brak setupów dla tych ustawień. Zmień interwał albo dodaj inne setupy.</div>`; return; }
@@ -243,7 +244,7 @@ function render() {
       <td class="r" data-l="Cel (pivot)">${fmt(s.tp_plan)}</td><td class="r" data-l="R:R">${fmt(s.rr_plan)}</td>
       <td class="r" data-l="Do wejścia">${s.dist_entry_pct > 0 ? "+" : ""}${fmt(s.dist_entry_pct)}%</td>
       ${x.ck.map(c => `<td class="c chk1">${yes(c[1], c[2])}</td>`).join("")}
-      <td class="c cnt" data-l="Spełnione">${x.n}/${x.tot}</td><td class="c" data-l="Ocena"><span class="gr g${s.grade}">${s.grade}</span></td>
+      <td class="c cnt" data-l="Spełnione">${x.n}/${x.tot}</td><td class="c" data-l="Ocena"><span class="gr g${x.g}">${x.g}</span></td>
       <td class="op ${ov.c}" data-l="Opcja" title="${ov.long}">${ov.short}</td></tr>`;
     const det = OPEN === id ? `<tr class="det"><td colspan="17"><div class="dg">
       <div><b>Status:</b> ${s.status === "W trakcie" ? "świeca sygnałowa jeszcze się formuje" : "czeka na przebicie triggera"} (świeca ${s.signal_date})</div>
