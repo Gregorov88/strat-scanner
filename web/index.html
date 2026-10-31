@@ -322,6 +322,8 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 const API = (() => { const p = "__PORT_8000__"; if (!p.startsWith("__")) return p; return location.port === "5500" ? "http://localhost:8000" : ""; })();
 const $ = s => document.querySelector(s);
 const S = { g: { uni: "all", sector: "", ctx: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
+const SEC_ETF = { "Information Technology": "XLK", "Financials": "XLF", "Health Care": "XLV", "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Energy": "XLE", "Industrials": "XLI", "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE", "Communication Services": "XLC" };
+const secEtf = r => r.sec_etf || SEC_ETF[r.sector] || "";
 const RULE = { D: { fvg: "W", ftfc: ["D","W"], ema: ["D","W","M"], name: "dzienny" }, W: { fvg: "M", ftfc: ["W","M"], ema: ["W","M","Q"], name: "tygodniowy" } };
 const GR = { "A": 3, "B": 2, "C": 1 };
 const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -519,7 +521,7 @@ async function openDetail(t, setupIdx, keepTf) {
   dr.innerHTML = `
   <div class="dh">
     <div style="flex:1"><h2>${r.ticker} <span class="dname">${r.name}</span> <span class="mono" style="font-size:15px;font-weight:500">${fmt(r.price)}</span> <span class="mono ${r.chg >= 0 ? "pos" : "neg"}" style="font-size:13px">${r.chg >= 0 ? "+" : ""}${fmt(r.chg)}%</span></h2>
-      <div class="sub">${r.sector} · ${r.indices.join(", ")} · dane do ${r.last_date}</div></div>
+      <div class="sub">${secEtf(r) ? secEtf(r) + " · " : ""}${r.sector} · ${r.indices.join(", ")} · dane do ${r.last_date}</div></div>
     <a class="tv" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=${r.ticker.replace("-", ".")}" data-testid="link-tradingview">TradingView ↗</a>
     <button class="iconbtn" onclick="closeDetail()" aria-label="Zamknij" data-testid="button-close">✕</button>
   </div>
@@ -652,7 +654,7 @@ function gOk(r) {
 }
 function fillSectors() {
   const secs = [...new Set((S.data?.results || []).map(r => r.sector).filter(Boolean))].sort();
-  $("#sector").innerHTML = `<option value="">Wszystkie sektory</option>` + secs.map(x => `<option ${x === S.g.sector ? "selected" : ""}>${x}</option>`).join("");
+  $("#sector").innerHTML = `<option value="">Wszystkie sektory</option>` + secs.map(x => `<option value="${x}" ${x === S.g.sector ? "selected" : ""}>${SEC_ETF[x] ? SEC_ETF[x] + " · " : ""}${x}</option>`).join("");
 }
 $("#auto").onchange = async e => { try { await fetch(API + "/api/auto/" + (e.target.checked ? 1 : 0), { method: "POST" }); } catch (_) {} };
 
@@ -979,7 +981,7 @@ function updateCounts() {
   $("#n-okazje").textContent = okRows().length;
   $("#n-weekly").textContent = weeklyRows().length; $("#n-f2").textContent = f2Rows().length; $("#n-mfvg").textContent = mfvgRows().length;
 }
-const secCell = x => `<span style="font-size:12.5px;color:var(--muted)">${x.r.sector || "—"}</span>`;
+const secCell = x => `<span style="font-size:12.5px;color:var(--muted)">${secEtf(x.r) ? `<b class="mono" style="color:var(--text, inherit)">${secEtf(x.r)}</b> · ` : ""}${x.r.sector || "—"}</span>`;
 const dirFilter = (id, cur) => chipsHtml(id, [["all", "Long + Short"], ["long", "Long"], ["short", "Short"]], cur);
 
 function renderWeekly(el) {
