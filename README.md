@@ -10,7 +10,7 @@ pinned: false
 
 # Strat Scanner — Nasdaq 100 + S&P 500
 
-Skaner setupów The Strat (2D-2U, 2U-2U, 2U-1-2U, F2D / 2U-2D, 2D-2D, 2D-1-2D, F2U)
+Skaner setupów The Strat (2D-2U, F2D / 2U-2D, F2U) na interwałach D, W i M
 z oceną A/B/C wg FTFC, EMA10/20 i FVG. Dane: Yahoo Finance.
 
 Uruchomienie lokalnie:

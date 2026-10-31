@@ -44,12 +44,14 @@ def _load_bt():
 
 bt = _load_bt()
 OPT_PARAMS = dict(delta=0.7, tol=0.05, min_dte=5, max_dte=31, min_oi=0, min_vol=10, range_pct=20.0, find_otm=False)
-OPTS = {"generated_at": None, "scan": None, "params": OPT_PARAMS, "data": {}}
+OPT_PARAMS_M = {**OPT_PARAMS, "min_dte": 45, "max_dte": 120}   # setupy miesięczne — dłuższe wygasania
+OPTS = {"generated_at": None, "scan": None, "params": OPT_PARAMS, "params_m": OPT_PARAMS_M, "data": {}}
 opt_state = {"running": False, "done": 0, "total": 0}
 
 
-def _opt_candidates(sc, cap=60):
-    """Setupy, dla których z automatu liczę najlepszą opcję: oczekujące, plan ≥ 4/6 lub ocena A."""
+def _opt_candidates(sc, cap=50, cap_m=20):
+    """Setupy, dla których z automatu liczę najlepszą opcję: oczekujące, plan ≥ 4/6 lub ocena A.
+    D/W — wygasania 5–31 dni, M — 60–90 dni (osobny klucz „|M”)."""
     c = []
     for r in sc.get("results", []):
         for su in r["setups"]:
@@ -57,26 +59,31 @@ def _opt_candidates(sc, cap=60):
                 continue
             if su.get("plan_score", 0) >= 4 or su.get("grade") == "A":
                 c.append((su.get("plan_score", 0) + (1 if su.get("mkt_ok") else 0) + (1 if su.get("sec_ok") else 0),
-                          r["ticker"], "C" if su["dir"] == "long" else "P"))
+                          r["ticker"], "C" if su["dir"] == "long" else "P", su["tf"] == "M"))
     c.sort(reverse=True)
-    seen, out = set(), []
-    for _, t, rt in c:
-        if (t, rt) not in seen:
-            seen.add((t, rt))
-            out.append((t, rt))
-    return out[:cap]
+    seen, out, nd, nm = set(), [], 0, 0
+    for _, t, rt, m in c:
+        if (t, rt, m) in seen:
+            continue
+        if (m and nm >= cap_m) or (not m and nd >= cap):
+            continue
+        seen.add((t, rt, m))
+        out.append((t, rt, m))
+        nm, nd = nm + m, nd + (not m)
+    return out
 
 
 def _precompute_options(sc):
     cand = _opt_candidates(sc)
     opt_state.update(running=True, done=0, total=len(cand))
     data = {}
-    for i, (t, rt) in enumerate(cand):
+    for i, (t, rt, m) in enumerate(cand):
+        key = f"{t}|{rt}" + ("|M" if m else "")
         try:
-            r = opt.delayed_chain(t, right=rt, **OPT_PARAMS)
-            data[f"{t}|{rt}"] = {**r, "rows": r["rows"][:12]}
+            r = opt.delayed_chain(t, right=rt, **(OPT_PARAMS_M if m else OPT_PARAMS))
+            data[key] = {**r, "rows": r["rows"][:12]}
         except Exception as e:
-            data[f"{t}|{rt}"] = {"error": str(e)}
+            data[key] = {"error": str(e)}
         opt_state["done"] = i + 1
     OPTS.update(generated_at=datetime.now(WAW).strftime("%Y-%m-%d %H:%M"), scan=sc.get("generated_at"), data=data)
     opt_state["running"] = False

@@ -272,7 +272,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 
   <section class="filters">
     <input class="search" id="q" placeholder="Szukaj tickera lub spółki" data-testid="input-search">
-    <div class="seg" id="stf" data-testid="seg-setup-tf"><button data-v="D" class="on">Dzienny</button><button data-v="W">Tygodniowy</button></div>
+    <div class="seg" id="stf" data-testid="seg-setup-tf"><button data-v="D" class="on">Dzienny</button><button data-v="W">Tygodniowy</button><button data-v="M">Miesięczny</button></div>
     <span class="hint" id="stfhint" style="margin:0"></span>
     <div class="chips" id="fdir">
       <button class="chip on" data-v="all">Long + Short</button><button class="chip" data-v="long">Long</button><button class="chip" data-v="short">Short</button>
@@ -283,7 +283,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
     </div>
     <span class="fsep"></span>
     <div class="chips" id="fpat">
-      <button class="chip on" data-v="2D-2U">2D-2U</button><button class="chip on" data-v="2U-2U">2U-2U</button><button class="chip on" data-v="2U-1-2U">2U-1-2U</button><button class="chip on" data-v="F2D">F2D</button><button class="chip on" data-v="2U-2D">2U-2D</button><button class="chip on" data-v="2D-2D">2D-2D</button><button class="chip on" data-v="2D-1-2D">2D-1-2D</button><button class="chip on" data-v="F2U">F2U</button>
+      <button class="chip on" data-v="2D-2U">2D-2U</button><button class="chip on" data-v="F2D">F2D</button><button class="chip on" data-v="2U-2D">2U-2D</button><button class="chip on" data-v="F2U">F2U</button>
     </div>
     <span class="fsep"></span>
     <div class="chips" id="frr" title="Stosunek zysku do ryzyka (R:R)">
@@ -306,10 +306,10 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
   <footer>
     <div class="help box" style="margin-bottom:14px">
       <h4>Jak czytać wyniki</h4>
-      <b>Formacje</b> (tylko przed wejściem — druga świeca pary, a dla 2-1-2 trzecia, jeszcze nie powstała i trigger nie jest przebity): longi — 2D-2U (odwrócenie), 2U-2U (kontynuacja), 2U-1-2U (kontynuacja przez inside bar), F2D; shorty — 2U-2D, 2D-2D, 2D-1-2D, F2U. Pierwsza świeca 2-1-2 musi być „czystą” 2U (zielona) lub 2D (czerwona), nie F2.<br>
-      <b>Poziomy:</b> wejście = high (long) / low (short) świecy sygnałowej (dla 2-1-2 — inside bara), SL = przeciwna krawędź tej świecy, TP = najbliższy niewybity swing pivot na interwale setupu (long: swing high nad wejściem, short: swing low pod wejściem; pivot = high/low wyższe/niższe od 2 świec z każdej strony). <b>R:R</b> — filtr &lt; 1, 1–2, &gt; 2.<br>
+      <b>Formacje</b> (tylko przed wejściem — druga świeca jeszcze nie powstała i trigger nie jest przebity): longi — 2D-2U (odwrócenie), F2D; shorty — 2U-2D (odwrócenie), F2U. Interwały setupu: D, W i M.<br>
+      <b>Poziomy:</b> wejście = high (long) / low (short) świecy sygnałowej SL = przeciwna krawędź tej świecy, TP = najbliższy niewybity swing pivot na interwale setupu (long: swing high nad wejściem, short: swing low pod wejściem; pivot = high/low wyższe/niższe od 2 świec z każdej strony). <b>R:R</b> — filtr &lt; 1, 1–2, &gt; 2.<br>
       <b>Status:</b> „Oczekuje” = świeca sygnałowa zamknięta, czekamy na przebicie triggera. „W trakcie” = świeca sygnałowa jeszcze się formuje.<br>
-      <b>Ocena</b> — trzy warunki: (1) FTFC — setup dzienny D+W, tygodniowy W+M (liczone dla ceny triggera: long powyżej otwarcia bieżącej świecy, short poniżej); (2) EMA10/20 — setup dzienny zgodna na D, W i M, tygodniowy na W, M i Q (long: EMA10 &gt; EMA20, short: EMA10 &lt; EMA20); (3) FVG — setup dzienny w FVG tygodniowym lub ≤ 3% od niego, tygodniowy w FVG miesięcznym lub ≤ 3% (long: bycze, short: niedźwiedzie). <b>A</b> = wszystkie trzy, <b>B</b> = dwa z trzech, <b>C</b> = jeden. Interwały niższe niż dzienny nie są brane pod uwagę.
+      <b>Ocena</b> — trzy warunki: (1) FTFC — setup dzienny D+W, tygodniowy W+M, miesięczny M+Q (liczone dla ceny triggera: long powyżej otwarcia bieżącej świecy, short poniżej); (2) EMA10/20 — setup dzienny zgodna na D, W i M, tygodniowy na W, M i Q, miesięczny na M i Q (long: EMA10 &gt; EMA20, short: EMA10 &lt; EMA20); (3) FVG — setup dzienny w FVG tygodniowym lub ≤ 3% od niego, tygodniowy w FVG miesięcznym, miesięczny w FVG kwartalnym, lub ≤ 3% (long: bycze, short: niedźwiedzie). <b>A</b> = wszystkie trzy, <b>B</b> = dwa z trzech, <b>C</b> = jeden. Interwały niższe niż dzienny nie są brane pod uwagę.
     </div>
     Dane cenowe: Yahoo Finance (dzienne, agregowane do W/M/Q). Opcje: Cboe z grekami, zapasowo Yahoo (opóźnione ok. 15 min) albo IBKR z Twojego TWS przez lokalny most. Narzędzie analityczne, nie stanowi rekomendacji inwestycyjnej.
   </footer>
@@ -321,10 +321,11 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 <script>
 const API = (() => { const p = "__PORT_8000__"; if (!p.startsWith("__")) return p; return location.port === "5500" ? "http://localhost:8000" : ""; })();
 const $ = s => document.querySelector(s);
-const S = { g: { uni: "all", sector: "", ctx: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
+const S = { g: { uni: "all", sector: "", ctx: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "F2D", "2U-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
 const SEC_ETF = { "Information Technology": "XLK", "Financials": "XLF", "Health Care": "XLV", "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Energy": "XLE", "Industrials": "XLI", "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE", "Communication Services": "XLC" };
 const secEtf = r => r.sec_etf || SEC_ETF[r.sector] || "";
-const RULE = { D: { fvg: "W", ftfc: ["D","W"], ema: ["D","W","M"], name: "dzienny" }, W: { fvg: "M", ftfc: ["W","M"], ema: ["W","M","Q"], name: "tygodniowy" } };
+const RULE = { D: { fvg: "W", ftfc: ["D","W"], ema: ["D","W","M"], name: "dzienny" }, W: { fvg: "M", ftfc: ["W","M"], ema: ["W","M","Q"], name: "tygodniowy" }, M: { fvg: "Q", ftfc: ["M","Q"], ema: ["M","Q"], name: "miesięczny" } };
+const TRT = { D: "D+W", W: "W+M", M: "M+Q" };
 const GR = { "A": 3, "B": 2, "C": 1 };
 const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
 const TFN = { D: "Dzienny", W: "Tygodniowy", M: "Miesięczny", Q: "Kwartalny" };
@@ -554,7 +555,7 @@ async function openDetail(t, setupIdx, keepTf) {
     ${satyBox(r, su)}
     ${su ? `<div class="box" id="optbox"><h4>Opcje do setupu <span style="margin-left:auto;display:flex;gap:6px"><button class="btn pri" id="optload" data-testid="button-load-options">Pokaż opcje (${srcName()})</button></span></h4><div id="optres" class="note">Łańcuch ${su.dir === "long" ? "CALL" : "PUT"} ${optCfgTxt()}. Kliknij, aby pobrać i policzyć wielkość pozycji.</div></div>` : ""}
     <div class="box"><h4>Niewypełnione FVG (najbliższe cenie)</h4>
-      <table class="fvgt mono"><tbody>${["W", "M"].flatMap(k => r.fvg_list[k].map(f => `<tr><td>${k}</td><td class="${f.type === "bull" ? "pos" : "neg"}">${f.type === "bull" ? "Bycze" : "Niedźwiedzie"}</td><td>${fmt(f.bot)} – ${fmt(f.top)}</td><td>${f.date}</td><td style="text-align:right">${f.bot <= r.price && r.price <= f.top ? "cena w FVG" : fmt(f.dist_pct) + "%"}</td></tr>`)).join("") || "<tr><td>Brak</td></tr>"}</tbody></table>
+      <table class="fvgt mono"><tbody>${["W", "M", "Q"].filter(k => r.fvg_list[k]).flatMap(k => r.fvg_list[k].map(f => `<tr><td>${k}</td><td class="${f.type === "bull" ? "pos" : "neg"}">${f.type === "bull" ? "Bycze" : "Niedźwiedzie"}</td><td>${fmt(f.bot)} – ${fmt(f.top)}</td><td>${f.date}</td><td style="text-align:right">${f.bot <= r.price && r.price <= f.top ? "cena w FVG" : fmt(f.dist_pct) + "%"}</td></tr>`)).join("") || "<tr><td>Brak</td></tr>"}</tbody></table>
     </div>
   </div>`;
   document.querySelectorAll("#ctf button").forEach(b => b.onclick = () => { S.cur.chartTf = b.dataset.v; openDetail(t, setupIdx, true); });
@@ -598,7 +599,7 @@ function drawChart(r, tf, su) {
 
 /* ======================= ustawienia ======================= */
 const DEF = { v: 2, src: "auto", bridge: "http://127.0.0.1:8765", risk: 1000, prof: "20/50/100", delta: 0.7, tol: 0.05,
-  min_dte: 5, max_dte: 31, oi: 0, vol: 10, range: 20, otm: false };
+  min_dte: 5, max_dte: 31, min_dte_m: 45, max_dte_m: 120, oi: 0, vol: 10, range: 20, otm: false };
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 S.cfg = { ...DEF, ...JSON.parse(store.get("ss_cfg") || "{}") };
 S.optCache = {}; S.optSel = {}; S.tab = "okazje"; S.tsort = {};
@@ -646,7 +647,7 @@ function ctxOk(x, dir, tf) {
 const tdot = (st, l, t) => `<span class="dot d-${st === "up" ? "up" : st === "down" ? "down" : "flat"}" title="${t}">${l}</span>`;
 function ctxEl(x, dir, tf) {
   const a = dir ? ctxAlign(x.r, dir, tf) : { mkt: x.mkt_trend, sec: x.sec_trend };
-  const r = x.r, T = tf || x.tf, rt = T === "W" ? "W+M" : "D+W";
+  const r = x.r, T = tf || x.tf, rt = TRT[T] || "D+W";
   return `<span class="dots">${tdot(a.mkt, "R", `Rynek ${r.mkt_etf}: trend ${TRN[a.mkt] || "—"} (EMA10/20 ${rt})`)}${tdot(a.sec, "S", `Sektor ${r.sec_etf || "—"} (${r.sector}): trend ${TRN[a.sec] || "—"} (EMA10/20 ${rt})`)}</span>`;
 }
 function gOk(r) {
@@ -687,7 +688,7 @@ const chipsHtml = (id, opts, cur) => `<div class="chips" id="${id}">${opts.map((
 function bindChips(id, fn) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.onclick = () => { fn(b.dataset.v); renderTab(); }); }
 const tkCell = x => `<div class="tkn"><span class="tk">${x.r.ticker}</span><span class="nm">${x.r.name}</span></div>`;
 const pdot = (ok, l, t) => `<span class="dot pd ${ok ? "d-ok" : "d-no"}" title="${t}">${l}</span>`;
-const planDots = x => x.plan ? `<span class="dots">${pdot(x.plan.fvg, "FVG", x.plan_fvg ? `FVG ${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "– cena w strefie" : x.plan_fvg.dist + "%"}` : "brak FVG W/M ≤ 3%")}${pdot(x.plan.ema, "EMA", "EMA10/20 " + (x.plan_ema_tfs || []).join("+"))}${pdot(x.plan.ftfc, "TF", "FTFC " + x.ftfc_tfs.join("+"))}${pdot(x.plan.saty, "ATR", "Saty ATR (M): wejście < 0,618 ATR od zamknięcia poprzedniego miesiąca; teraz " + fmt(x.saty_pos_entry, 2))}${pdot(x.plan.kc, "KC", "Świeca sygnałowa w/za pasmem Keltner 0,5 (" + fmt(x.kc_pos, 2) + " ATR od EMA20)")}${pdot(x.plan.rr, "RR", "R:R do celu ≥ 2 (" + (x.rr_plan == null ? "—" : fmt(x.rr_plan)) + ")")}</span> <span class="mono" style="color:var(--muted)">${x.plan_score}/6</span>` : "—";
+const planDots = x => x.plan ? `<span class="dots">${pdot(x.plan.fvg, "FVG", x.plan_fvg ? `FVG ${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "– cena w strefie" : x.plan_fvg.dist + "%"}` : "brak FVG " + (x.tf === "M" ? "M/Q" : "W/M") + " ≤ 3%")}${pdot(x.plan.ema, "EMA", "EMA10/20 " + (x.plan_ema_tfs || []).join("+"))}${pdot(x.plan.ftfc, "TF", "FTFC " + x.ftfc_tfs.join("+"))}${pdot(x.plan.saty, "ATR", "Saty ATR (" + (x.plan_saty_tf === "Q" ? "Position, 3M" : "Swing, M") + "): wejście < 0,618 ATR od zamknięcia poprzedniego " + (x.plan_saty_tf === "Q" ? "kwartału" : "miesiąca") + "; teraz " + fmt(x.saty_pos_entry, 2))}${pdot(x.plan.kc, "KC", "Świeca sygnałowa w/za pasmem Keltner 0,5 (" + fmt(x.kc_pos, 2) + " ATR od EMA20)")}${pdot(x.plan.rr, "RR", "R:R do celu ≥ 2 (" + (x.rr_plan == null ? "—" : fmt(x.rr_plan)) + ")")}</span> <span class="mono" style="color:var(--muted)">${x.plan_score}/6</span>` : "—";
 const lvCols = () => S.showLv ? [
   { k: "entry", l: "Wejście", r: 1, f: x => fmt(x.entry), s: x => x.entry },
   { k: "sl", l: "SL", r: 1, f: x => fmt(x.sl), s: x => x.sl },
@@ -700,17 +701,18 @@ function optMini(t, x) {
   if (!res) return `<button class="btn" data-opt="1" data-testid="button-opt-${t}">Sprawdź</button>`;
   if (res.error) return `<span class="no" title="${res.error}">błąd</span> <button class="btn" data-opt="1">↻</button>`;
   const o = res.best;
-  if (!o) return `<span class="no" title="Brak kontraktów z deltą ${S.cfg.delta}±${S.cfg.tol} w zakresie ${S.cfg.min_dte}–${S.cfg.max_dte} dni">brak opcji</span>`;
+  if (!o) return `<span class="no" title="Brak kontraktów z deltą ${S.cfg.delta}±${S.cfg.tol} w zakresie ${dteOf(x.tf === "M").join("–")} dni">brak opcji</span>`;
   const ll = res.low_liq ? `<span class="hit" style="color:var(--gold)" title="Wolumen poniżej progu ${S.cfg.vol} — niska płynność">niska płynność</span>` : "";
   return `<span class="optmini mono ${o.green && !res.low_liq ? "pos" : ""}" title="OI ${o.oi} · wolumen ${o.volume} · Ext/Price ${o.ext_price}% · spread ${o.spread_pct ?? "—"}%">${o.expiration.slice(5)} ${o.strike}${res.right} Δ${fmt(Math.abs(o.delta), 2)} $${fmt(optMid(o))}${o.green && !res.low_liq ? " ✓" : ""}</span>${ll}`;
 }
-const optKey = (t, su) => t + "|" + (su.dir === "long" ? "C" : "P");
+const optKey = (t, su) => t + "|" + (su.dir === "long" ? "C" : "P") + (su.tf === "M" ? "|M" : "");
+const dteOf = m => m ? [S.cfg.min_dte_m, S.cfg.max_dte_m] : [S.cfg.min_dte, S.cfg.max_dte];
 const optMid = o => o.bid != null ? (o.bid + o.ask) / 2 : o.last;
 
 /* ======================= opcje ======================= */
-async function fetchOptions(t, right) {
-  const c = S.cfg;
-  const q = new URLSearchParams({ ticker: t, type: right, delta: c.delta, tol: c.tol, min_dte: c.min_dte, max_dte: c.max_dte, oi: c.oi, vol: c.vol, range: c.range, otm: c.otm ? 1 : 0 });
+async function fetchOptions(t, right, m) {
+  const c = S.cfg, [d0, d1] = dteOf(m);
+  const q = new URLSearchParams({ ticker: t, type: right, delta: c.delta, tol: c.tol, min_dte: d0, max_dte: d1, oi: c.oi, vol: c.vol, range: c.range, otm: c.otm ? 1 : 0 });
   if (useIbkr()) {
     try {
       const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 150000);
@@ -728,7 +730,7 @@ async function fetchYahoo(t, q) {
 }
 async function quickOpt(r, su, btn) {
   if (btn) { btn.disabled = true; btn.textContent = "…"; }
-  try { S.optCache[optKey(r.ticker, su)] = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P"); }
+  try { S.optCache[optKey(r.ticker, su)] = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P", su.tf === "M"); }
   catch (e) { S.optCache[optKey(r.ticker, su)] = { error: String(e.message || e) }; }
   renderTab();
 }
@@ -737,7 +739,7 @@ async function batchOpt(rows, btn) {
   for (let i = 0; i < rows.length; i++) {
     btn.textContent = `Sprawdzam ${i + 1}/${rows.length}…`;
     const x = rows[i]; if (S.optCache[optKey(x.r.ticker, x)]) continue;
-    try { S.optCache[optKey(x.r.ticker, x)] = await fetchOptions(x.r.ticker, x.dir === "long" ? "C" : "P"); }
+    try { S.optCache[optKey(x.r.ticker, x)] = await fetchOptions(x.r.ticker, x.dir === "long" ? "C" : "P", x.tf === "M"); }
     catch (e) { S.optCache[optKey(x.r.ticker, x)] = { error: String(e.message || e) }; }
     renderTab();
   }
@@ -745,7 +747,7 @@ async function batchOpt(rows, btn) {
 async function loadOptions(r, su) {
   const b = $("#optload"); b.disabled = true; b.textContent = "Pobieranie…";
   $("#optres").innerHTML = `<div class="note">Pobieram łańcuch ${su.dir === "long" ? "CALL" : "PUT"} z ${srcName()}${S.cfg.src === "ibkr" ? " — TWS notuje kontrakty w paczkach, to może potrwać 20–90 s" : ""}…</div>`;
-  try { const res = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P"); S.optCache[optKey(r.ticker, su)] = res; showOptions(r, su, res); }
+  try { const res = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P", su.tf === "M"); S.optCache[optKey(r.ticker, su)] = res; showOptions(r, su, res); }
   catch (e) { $("#optres").innerHTML = `<div class="warn">Nie udało się pobrać opcji: ${e.message || e}</div>`; }
   b.disabled = false; b.textContent = `Odśwież (${srcName()})`;
 }
@@ -833,7 +835,7 @@ function satyBox(r, su) {
   const s = r.saty || {}, k = r.kc || {}, tr = r.saty_trend || {};
   const lv = s.M ? ["-1.618", "-1.0", "-0.786", "-0.618", "-0.5", "-0.382", "-0.236", "0", "+0.236", "+0.382", "+0.5", "+0.618", "+0.786", "+1.0", "+1.618"].map(x => `<div><span>${x}</span>${fmt(s.M.levels[x])}</div>`).join("") : "";
   const a = su ? ctxAlign(r, su.dir, su.tf) : null, m = ETF();
-  const ctxLine = a ? `<div class="note" style="margin-bottom:8px">Rynek <b>${r.mkt_etf}</b>: <b style="color:${a.mkt === "up" ? "var(--long)" : a.mkt === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.mkt] || "—"}</b> · Sektor <b>${r.sec_etf || "—"}</b> (${r.sector}${m[r.sec_etf] ? `, ranking ${m[r.sec_etf].rank}/11` : ""}): <b style="color:${a.sec === "up" ? "var(--long)" : a.sec === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.sec] || "—"}</b> — EMA10/20 ${su.tf === "W" ? "W+M" : "D+W"}, setup ${su.dir === "long" ? "long" : "short"}: ${a.mkt_ok && a.sec_ok ? "rynek i sektor zgodne" : a.mkt_ok ? "zgodny tylko rynek" : a.sec_ok ? "zgodny tylko sektor" : "rynek i sektor przeciwne"}.</div>` : "";
+  const ctxLine = a ? `<div class="note" style="margin-bottom:8px">Rynek <b>${r.mkt_etf}</b>: <b style="color:${a.mkt === "up" ? "var(--long)" : a.mkt === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.mkt] || "—"}</b> · Sektor <b>${r.sec_etf || "—"}</b> (${r.sector}${m[r.sec_etf] ? `, ranking ${m[r.sec_etf].rank}/11` : ""}): <b style="color:${a.sec === "up" ? "var(--long)" : a.sec === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.sec] || "—"}</b> — EMA10/20 ${TRT[su.tf]}, setup ${su.dir === "long" ? "long" : "short"}: ${a.mkt_ok && a.sec_ok ? "rynek i sektor zgodne" : a.mkt_ok ? "zgodny tylko rynek" : a.sec_ok ? "zgodny tylko sektor" : "rynek i sektor przeciwne"}.</div>` : "";
   return `<div class="box"><h4>Rynek, sektor, Saty ATR i Keltner</h4>${ctxLine}
     <div class="lbl" style="margin-bottom:6px">Saty ATR Levels (ATR 14, trigger 0,236) · trend EMA 8/21/34: D <b style="color:${trCol(tr.D)}">${tr.D || "—"}</b>, W <b style="color:${trCol(tr.W)}">${tr.W || "—"}</b></div>
     ${satyTable(s)}
@@ -852,7 +854,7 @@ function renderMkt(el) {
   const cnt = {}; (S.rows || []).forEach(x => { if (!gOk(x.r)) return; const k = x.r.sec_etf; cnt[k] = cnt[k] || { l: 0, s: 0 }; cnt[k][x.dir === "long" ? "l" : "s"]++; });
   const base = [
     { k: "t", l: "ETF", f: x => `<div class="tkn"><span class="tk">${x.ticker}</span><span class="nm">${x.name}</span></div>`, s: x => x.ticker },
-    { k: "td", l: "Trend D (D+W)", f: x => st(x.trend_D), s: x => x.trend_D }, { k: "tw", l: "Trend W (W+M)", f: x => st(x.trend_W), s: x => x.trend_W },
+    { k: "td", l: "Trend D (D+W)", f: x => st(x.trend_D), s: x => x.trend_D }, { k: "tw", l: "Trend W (W+M)", f: x => st(x.trend_W), s: x => x.trend_W }, { k: "tm", l: "Trend M (M+Q)", f: x => st(x.trend_M), s: x => x.trend_M },
     { k: "ema", l: "EMA10/20 D·W·M", f: emaD }, { k: "ft", l: "FTFC D·W·M", f: ftD },
     { k: "st8", l: "EMA 8/21/34 D·W", t: "Trend z tabeli Saty", f: x => `<span style="font-size:12px"><b style="color:${trCol(x.saty_trend.D)}">${x.saty_trend.D || "—"}</b> · <b style="color:${trCol(x.saty_trend.W)}">${x.saty_trend.W || "—"}</b></span>` },
     { k: "w1", l: "1 tydz.", r: 1, f: x => pct(x.w1), s: x => x.w1 }, { k: "m1", l: "1 mies.", r: 1, f: x => pct(x.m1), s: x => x.m1 }, { k: "m3", l: "3 mies.", r: 1, f: x => pct(x.m3), s: x => x.m3 },
@@ -864,7 +866,7 @@ function renderMkt(el) {
     { k: "n", l: "Setupy L / S", r: 1, t: "Liczba setupów long / short w sektorze (wg filtrów rynku)", f: x => `${cnt[x.ticker]?.l || 0} / ${cnt[x.ticker]?.s || 0}`, s: x => (cnt[x.ticker]?.l || 0) + (cnt[x.ticker]?.s || 0) }];
   const TM = tbl("mkt_m", base, c.market, null), TS = tbl("mkt_s", secCols, c.sectors, x => { S.g.sector = x.name; fillSectors(); $("#sector").value = x.name; document.querySelector('[data-testid=tab-setups]').click(); render(); });
   const up = c.sectors.filter(x => x.trend_W === "up").length, dn = c.sectors.filter(x => x.trend_W === "down").length;
-  el.innerHTML = `<div class="sec-h"><h3>Trend rynku</h3><div class="desc">Trend = EMA10/20 na dwóch interwałach: dla setupów D liczy się D+W, dla setupów W — W+M (jak w ocenie). Spółki z S&amp;P 500 porównywane są do SPY, spółki tylko z Nasdaq 100 — do QQQ.</div></div>${TM.html}
+  el.innerHTML = `<div class="sec-h"><h3>Trend rynku</h3><div class="desc">Trend = EMA10/20 na dwóch interwałach: dla setupów D liczy się D+W, dla setupów W — W+M, dla setupów M — M+Q (jak w ocenie). Spółki z S&amp;P 500 porównywane są do SPY, spółki tylko z Nasdaq 100 — do QQQ.</div></div>${TM.html}
     <div class="sec-h" style="margin-top:18px"><h3>Sektory</h3><div class="desc">11 ETF-ów sektorowych SPDR, ranking wg siły względem SPY w ostatnim miesiącu. W trendzie W+M: ${up} wzrostowych, ${dn} spadkowych. Kliknij sektor, aby zobaczyć jego setupy (zadanie 8.2).</div></div>${TS.html}
     ${(S.data.frozen || []).length ? `<div class="note" style="margin-top:10px">Pominięte (cena zamrożona, ATR D &lt; 0,6% — zwykle spółka w trakcie przejęcia): ${S.data.frozen.join(", ")}.</div>` : ""}`;
   TM.bind(); TS.bind();
@@ -939,38 +941,40 @@ function renderOkazje(el) {
   const T = tbl("okazje", cols, rows, x => openDetail(x.r.ticker, x.idx));
   const O = S.data.opts_at ? ` Opcje policzone automatycznie ${S.data.opts_at}.` : "";
   el.innerHTML = `<div class="sec-h"><h3>Najlepsze okazje teraz</h3>
-    ${chipsHtml("otf", [["all", "D + W"], ["D", "Dzienne"], ["W", "Tygodniowe"]], S.of.tf)}${dirFilter("odir", S.of.dir)}
+    ${chipsHtml("otf", [["all", "D + W + M"], ["D", "Dzienne"], ["W", "Tygodniowe"], ["M", "Miesięczne"]], S.of.tf)}${dirFilter("odir", S.of.dir)}
     ${chipsHtml("omin", [[3, "≥ 3/6"], [4, "≥ 4/6"], [5, "≥ 5/6"]], S.of.min)}
     ${chipsHtml("otr", [[1, "W trendzie EMA"], [0, "Bez filtra trendu"]], S.of.trend)}
-    <div class="desc">Wszystko liczy się samo: skan co 30 min w sesji, ocena planu, trend rynku i sektora oraz najlepsza opcja wg logiki ibquery.py (delta ${S.cfg.delta}, ${S.cfg.min_dte}–${S.cfg.max_dte} dni) z liczbą kontraktów dla ryzyka ${S.cfg.risk} $.${O} Tylko setupy przed wejściem. Kliknij wiersz po pełny plan i treść zleceń. Filtry zmieniasz opcjonalnie — aplikacja je zapamięta.</div></div>` + T.html;
+    <div class="desc">Wszystko liczy się samo: skan co 30 min w sesji, ocena planu, trend rynku i sektora oraz najlepsza opcja wg logiki ibquery.py (delta ${S.cfg.delta}, ${S.cfg.min_dte}–${S.cfg.max_dte} dni, dla setupów M ${S.cfg.min_dte_m}–${S.cfg.max_dte_m} dni) z liczbą kontraktów dla ryzyka ${S.cfg.risk} $.${O} Tylko setupy przed wejściem. Kliknij wiersz po pełny plan i treść zleceń. Filtry zmieniasz opcjonalnie — aplikacja je zapamięta.</div></div>` + T.html;
   T.bind(); bindChips("otf", v => S.of.tf = v); bindChips("odir", v => S.of.dir = v); bindChips("omin", v => S.of.min = +v); bindChips("otr", v => S.of.trend = +v);
   autoOpt(rows.slice(0, 15));
 }
 /* automatyczne dociąganie opcji dla widocznych pozycji (bez klikania) */
 S.optQ = new Set(); S.optBusy = false;
 function autoOpt(rows) {
-  rows.forEach(x => { const k = optKey(x.r.ticker, x); if (!S.optCache[k]) S.optQ.add(JSON.stringify([x.r.ticker, x.dir === "long" ? "C" : "P"])); });
+  rows.forEach(x => { const k = optKey(x.r.ticker, x); if (!S.optCache[k]) S.optQ.add(JSON.stringify([x.r.ticker, x.dir === "long" ? "C" : "P", x.tf === "M"])); });
   if (S.optBusy) return;
   (async () => {
     S.optBusy = true;
     while (S.optQ.size) {
       const it = S.optQ.values().next().value; S.optQ.delete(it);
-      const [t, rt] = JSON.parse(it), k = t + "|" + rt;
+      const [t, rt, m] = JSON.parse(it), k = t + "|" + rt + (m ? "|M" : "");
       if (S.optCache[k]) continue;
-      try { S.optCache[k] = await fetchOptions(t, rt); } catch (e) { S.optCache[k] = { error: String(e.message || e) }; }
+      try { S.optCache[k] = await fetchOptions(t, rt, m); } catch (e) { S.optCache[k] = { error: String(e.message || e) }; }
       if (S.tab !== "setups" && !$("#drawer").classList.contains("on")) renderTab();
     }
     S.optBusy = false;
   })();
 }
-const sameParams = p => p && Math.abs(p.delta - S.cfg.delta) < 1e-9 && Math.abs(p.tol - S.cfg.tol) < 1e-9 && p.min_dte === S.cfg.min_dte && p.max_dte === S.cfg.max_dte &&
+const sameParams = (p, m) => p && Math.abs(p.delta - S.cfg.delta) < 1e-9 && Math.abs(p.tol - S.cfg.tol) < 1e-9 && p.min_dte === dteOf(m)[0] && p.max_dte === dteOf(m)[1] &&
   p.min_oi === S.cfg.oi && p.min_vol === S.cfg.vol && Math.abs(p.range_pct - S.cfg.range) < 1e-9 && p.find_otm === !!S.cfg.otm;
 async function loadSrvOpts() {
   if (useIbkr()) return;                       // przy TWS liczymy na żywo z IBKR
   try {
     const o = await (await fetch(API + "/api/opts")).json();
-    if (!o.generated_at || !sameParams(o.params)) return;
-    for (const [k, v] of Object.entries(o.data)) if (!S.optCache[k]) S.optCache[k] = v;
+    if (!o.generated_at) return;
+    const okD = sameParams(o.params, false), okM = sameParams(o.params_m, true);
+    if (!okD && !okM) return;
+    for (const [k, v] of Object.entries(o.data)) if (!S.optCache[k] && (k.endsWith("|M") ? okM : okD)) S.optCache[k] = v;
     if (S.data) S.data.opts_at = o.generated_at;
     S.optsGen = o.generated_at;
     if (!$("#drawer").classList.contains("on")) renderTab();
@@ -1097,7 +1101,8 @@ function renderCfg(el) {
     ${f("risk", "Ryzyko na transakcję ($)", 50, "wyznacza liczbę kontraktów")}
     <div class="field"><label>Profil celów</label><div class="seg" id="cprof">${["20/50/100", "20/40/60"].map(v => `<button data-v="${v}" class="${c.prof === v ? "on" : ""}">${v}%</button>`).join("")}</div><div class="hint">SL na BE po +${c.prof.includes("40") ? 40 : 50}%</div></div>
     ${f("delta", "Delta", 0.05, "np. 0,7")}${f("tol", "Tolerancja delty", 0.01, "± od delty")}
-    ${f("min_dte", "Min. dni do wygaśnięcia", 1)}${f("max_dte", "Maks. dni do wygaśnięcia", 1, "maks. miesięczne = 31")}
+    ${f("min_dte", "Min. dni do wygaśnięcia", 1)}${f("max_dte", "Maks. dni do wygaśnięcia", 1, "setupy D i W")}
+    ${f("min_dte_m", "Min. dni — setupy M", 1)}${f("max_dte_m", "Maks. dni — setupy M", 1, "dłuższe wygasania dla M")}
     ${f("oi", "Min. open interest", 50)}${f("vol", "Min. wolumen dzienny", 1, "0 przed otwarciem sesji")}
     ${f("range", "Zakres strike'ów ±%", 5, "mniej = szybciej w IBKR")}
     <div class="field"><label>Strona</label><div class="seg" id="cotm"><button data-v="0" class="${!c.otm ? "on" : ""}">ITM</button><button data-v="1" class="${c.otm ? "on" : ""}">OTM</button></div></div>

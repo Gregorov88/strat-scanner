@@ -1,6 +1,6 @@
 """
 Strat Scanner — Nasdaq 100 + S&P 500
-Silnik analizy: The Strat (2D-2U, 2U-2U, 2U-1-2U, F2D / 2U-2D, 2D-2D, 2D-1-2D, F2U), FTFC (W/M/Q), EMA10/EMA20, FVG (W/M).
+Silnik analizy: The Strat (2D-2U, F2D / 2U-2D, F2U) na D, W i M, FTFC, EMA10/EMA20, FVG (W/M/Q).
 
 Może działać:
   1) jako moduł backendu aplikacji (server.py),
@@ -182,23 +182,15 @@ def find_pivot_tp(h, l, k, entry, direction, wing=2):
 # formacje: nazwa -> (kierunek, czy 3-świecowa, warunek na świecę sygnałową k)
 PATTERNS = [
     ("2D-2U",   "long",  lambda lab, typ, k: lab(k) == "2D"),
-    ("2U-2U",   "long",  lambda lab, typ, k: lab(k) == "2U"),
-    ("2U-1-2U", "long",  lambda lab, typ, k: typ(k) == "1" and lab(k - 1) == "2U"),
     ("F2D",     "long",  lambda lab, typ, k: lab(k) == "F2D"),
     ("2U-2D",   "short", lambda lab, typ, k: lab(k) == "2U"),
-    ("2D-2D",   "short", lambda lab, typ, k: lab(k) == "2D"),
-    ("2D-1-2D", "short", lambda lab, typ, k: typ(k) == "1" and lab(k - 1) == "2D"),
     ("F2U",     "short", lambda lab, typ, k: lab(k) == "F2U"),
 ]
 
 PAT_DESC = {
     "2D-2U": "Świeca sygnałowa 2D (czerwona). Wejście: przebicie jej high → kolejna świeca 2U (odwrócenie w górę).",
-    "2U-2U": "Świeca sygnałowa 2U (zielona). Wejście: przebicie jej high → kolejna świeca 2U (kontynuacja wzrostu).",
-    "2U-1-2U": "Świeca 2U (zielona) + inside bar (1). Wejście: przebicie high insidera → trzecia świeca 2U (kontynuacja).",
     "F2D": "Świeca F2D: wybiła low poprzedniej i zamknęła się na zielono. Wejście: przebicie jej high.",
     "2U-2D": "Świeca sygnałowa 2U (zielona). Wejście: przebicie jej low → kolejna świeca 2D (odwrócenie w dół).",
-    "2D-2D": "Świeca sygnałowa 2D (czerwona). Wejście: przebicie jej low → kolejna świeca 2D (kontynuacja spadku).",
-    "2D-1-2D": "Świeca 2D (czerwona) + inside bar (1). Wejście: przebicie low insidera → trzecia świeca 2D (kontynuacja).",
     "F2U": "Świeca F2U: wybiła high poprzedniej i zamknęła się na czerwono. Wejście: przebicie jej low.",
 }
 
@@ -465,15 +457,20 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
     saty = {tf: saty_levels(bars[tf], comp.get(tf, True), price) for tf in ("D", "W", "M", "Q")}
     saty_tr = {tf: saty_trend(bars[tf]) for tf in ("D", "W")}
     kc = {tf: keltner(bars[tf], price) for tf in ("D", "W", "M")}
-    kcs = {tf: kc_series(bars[tf]) for tf in ("D", "W")}
+    kcs = {tf: kc_series(bars[tf]) for tf in ("D", "W", "M")}
 
     # FVG W i M
     fvg = {"W": fvg_context(bars["W"], price, cfg["near_w"]),
-           "M": fvg_context(bars["M"], price, cfg["near_m"])}
+           "M": fvg_context(bars["M"], price, cfg["near_m"]),
+           "Q": fvg_context(bars["Q"], price, cfg["near_m"])}
 
     # Setupy na D (FVG W, FTFC D+W filtr, D+W+M ocena) lub W (FVG M, FTFC W+M filtr, W+M+Q ocena)
     RULES = {"D": {"fvg": "W", "ftfc": ("D", "W"), "ema": ("D", "W", "M")},
-             "W": {"fvg": "M", "ftfc": ("W", "M"), "ema": ("W", "M", "Q")}}
+             "W": {"fvg": "M", "ftfc": ("W", "M"), "ema": ("W", "M", "Q")},
+             "M": {"fvg": "Q", "ftfc": ("M", "Q"), "ema": ("M", "Q")}}
+    PLAN_FVG = {"D": ("W", "M"), "W": ("W", "M"), "M": ("M", "Q")}
+    PLAN_EMA = {"D": ("D", "W"), "W": ("W", "M"), "M": ("M", "Q")}
+    PLAN_SATY = {"D": "M", "W": "M", "M": "Q"}   # Saty Swing dla D/W, Position (3M) dla M
     setups = []
     for stf in cfg["setup_tfs"]:
         rule = RULES[stf]
@@ -508,13 +505,13 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
                 "score": score, "grade": grade, "n_ok": n_ok,
             })
             # --- klasyfikacja planu (zadania 5.1-8.2): FVG W/M, EMA, FTFC, Saty M, Keltner 0.5, zasięg R:R
-            sat = saty["M"]
+            sat = saty[PLAN_SATY[stf]]
             fvg_any = None
-            for ftf in ("W", "M"):
+            for ftf in PLAN_FVG[stf]:
                 z = fvg[ftf][kind]
                 if z and z["near"] and (fvg_any is None or z["dist_pct"] < fvg_any[1]["dist_pct"]):
                     fvg_any = (ftf, z)
-            ema_plan_tfs = ("W", "M") if stf == "W" else ("D", "W")
+            ema_plan_tfs = PLAN_EMA[stf]
             ema_plan = all(emas.get(k) and emas[k]["trend"] == want for k in ema_plan_tfs)
             epos = sign * (s["entry"] - sat["pc"]) / sat["atr"] if sat else None
             saty_ok = bool(epos is not None and epos < 0.618)
@@ -547,7 +544,7 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
                 "plan": plan, "plan_score": int(sum(plan.values())),
                 "plan_fvg": ({"tf": fvg_any[0], "state": fvg_any[1]["state"], "dist": fvg_any[1]["dist_pct"],
                               "zone": [fvg_any[1]["bot"], fvg_any[1]["top"]]} if fvg_any else None),
-                "plan_ema_tfs": list(ema_plan_tfs),
+                "plan_ema_tfs": list(ema_plan_tfs), "plan_saty_tf": PLAN_SATY[stf],
                 "saty_pos_entry": round(epos, 3) if epos is not None else None,
                 "saty_tp": st_v, "saty_tp_lvl": st_lbl,
                 "rr_saty": round(abs(st_v - s["entry"]) / risk, 2) if (st_v is not None and risk > 0) else None,
@@ -590,21 +587,21 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
         "saty": saty, "saty_trend": saty_tr, "kc": kc,
         "candles": last_types,
         "chart": {"D": pack(bars["D"], 120), "W": pack(bars["W"], 104), "M": pack(bars["M"], 60)},
-        "fvg_list": {"W": fvg_list(bars["W"]), "M": fvg_list(bars["M"])},
+        "fvg_list": {"W": fvg_list(bars["W"]), "M": fvg_list(bars["M"]), "Q": fvg_list(bars["Q"])},
     }
 
 
-DEFAULT_CFG = {"near_w": 3.0, "near_m": 3.0, "setup_tfs": ["D", "W"], "ema_tf": "setup"}
+DEFAULT_CFG = {"near_w": 3.0, "near_m": 3.0, "setup_tfs": ["D", "W", "M"], "ema_tf": "setup"}
 
 
-TREND_TFS = {"D": ("D", "W"), "W": ("W", "M")}
+TREND_TFS = {"D": ("D", "W"), "W": ("W", "M"), "M": ("M", "Q")}
 
 
 def etf_context(t: str, d: pd.DataFrame, now_ny: datetime) -> dict:
     price = float(d["Close"].iloc[-1])
     bars = {tf: resample(d, tf) for tf in ("D", "W", "M", "Q")}
     ema_tr, ftfc = {}, {}
-    for tf in ("D", "W", "M"):
+    for tf in ("D", "W", "M", "Q"):
         c = bars[tf]["Close"]
         e10, e20 = float(ema(c, 10).iloc[-1]), float(ema(c, 20).iloc[-1])
         ema_tr[tf] = {"trend": "up" if e10 > e20 else "down", "e10": round(e10, 2), "e20": round(e20, 2),
@@ -621,11 +618,11 @@ def etf_context(t: str, d: pd.DataFrame, now_ny: datetime) -> dict:
         return "up" if tr == {"up"} else ("down" if tr == {"down"} else "mixed")
 
     return {"ticker": t, "price": round(price, 2), "chg": perf(1), "w1": perf(5), "m1": perf(21), "m3": perf(63),
-            "ema": ema_tr, "ftfc": ftfc, "trend_D": state(("D", "W")), "trend_W": state(("W", "M")),
+            "ema": ema_tr, "ftfc": ftfc, "trend_D": state(("D", "W")), "trend_W": state(("W", "M")), "trend_M": state(("M", "Q")),
             "trend": state(("D", "W", "M")),
             "saty": {tf: saty_levels(bars[tf], True, price) for tf in ("D", "W", "M")},
             "saty_trend": {tf: saty_trend(bars[tf]) for tf in ("D", "W")},
-            "kc": {tf: keltner(bars[tf], price) for tf in ("D", "W")}}
+            "kc": {tf: keltner(bars[tf], price) for tf in ("D", "W", "M")}}
 
 
 def market_context(data: dict, now_ny: datetime) -> dict:
