@@ -50,7 +50,29 @@ SECTOR_ETF = {"Information Technology": "XLK", "Financials": "XLF", "Health Care
               "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Energy": "XLE",
               "Industrials": "XLI", "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE",
               "Communication Services": "XLC"}
-MARKET_ETF = {"SPY": "S&P 500", "QQQ": "Nasdaq 100"}
+MARKET_ETF = {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "DBC": "Surowce (indeks DBC)"}
+
+# Surowce: kontrakty ciągłe z Yahoo (=F) + ETF-y. disp = symbol jak w TradingView, tv = symbol do linku.
+COMMODITIES = [
+    ("GC=F", "GC1!", "COMEX:GC1!", "Złoto (futures)", "Metale szlachetne"),
+    ("GLD", "GLD", "AMEX:GLD", "SPDR Gold Shares (ETF)", "Metale szlachetne"),
+    ("SI=F", "SI1!", "COMEX:SI1!", "Srebro (futures)", "Metale szlachetne"),
+    ("PL=F", "PL1!", "NYMEX:PL1!", "Platyna (futures)", "Metale szlachetne"),
+    ("PA=F", "PA1!", "NYMEX:PA1!", "Pallad (futures)", "Metale szlachetne"),
+    ("HG=F", "HG1!", "COMEX:HG1!", "Miedź (futures)", "Metale przemysłowe"),
+    ("CL=F", "CL1!", "NYMEX:CL1!", "Ropa WTI (futures)", "Energia"),
+    ("USO", "USO", "AMEX:USO", "United States Oil Fund (ETF)", "Energia"),
+    ("NG=F", "NG1!", "NYMEX:NG1!", "Gaz ziemny (futures)", "Energia"),
+    ("UNG", "UNG", "AMEX:UNG", "United States Natural Gas Fund (ETF)", "Energia"),
+    ("ZW=F", "ZW1!", "CBOT:ZW1!", "Pszenica (futures)", "Rolne"),
+    ("ZS=F", "ZS1!", "CBOT:ZS1!", "Soja (futures)", "Rolne"),
+    ("ZC=F", "ZC1!", "CBOT:ZC1!", "Kukurydza (futures)", "Rolne"),
+    ("SB=F", "SB1!", "ICEUS:SB1!", "Cukier (futures)", "Rolne"),
+    ("CT=F", "CT1!", "ICEUS:CT1!", "Bawełna (futures)", "Rolne"),
+    ("KC=F", "KC1!", "ICEUS:KC1!", "Kawa (futures)", "Rolne"),
+    ("CC=F", "CC1!", "ICEUS:CC1!", "Kakao (futures)", "Rolne"),
+    ("LE=F", "LE1!", "CME:LE1!", "Bydło (futures)", "Hodowla"),
+]
 CONTEXT_TICKERS = list(MARKET_ETF) + list(SECTOR_ETF.values())
 
 
@@ -72,6 +94,9 @@ def get_universe(refresh: bool = False) -> dict:
         for r in lists[key]:
             d = uni.setdefault(r["t"], {"name": r["n"], "sector": SECTOR_ALIAS.get(r["s"], r["s"]), "indices": []})
             d["indices"].append(label)
+    for t, disp, tv, name, grp in COMMODITIES:
+        uni[t] = {"name": name, "sector": grp, "indices": ["CMD"], "disp": disp, "tv": tv,
+                  "fut": t.endswith("=F")}
     return uni
 
 
@@ -582,6 +607,7 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
     chg = (price / float(d["Close"].iloc[-2]) - 1) * 100 if len(d) > 1 else 0
     return {
         "ticker": ticker, "name": meta["name"], "sector": meta["sector"], "indices": meta["indices"],
+        "disp": meta.get("disp", ticker), "tv": meta.get("tv"), "fut": bool(meta.get("fut")),
         "price": round(price, 2), "chg": round(chg, 2), "last_date": str(d.index[-1].date()),
         "ftfc": ftfc, "ftfc_state": ftfc_state, "ema": emas, "fvg": fvg, "setups": setups,
         "saty": saty, "saty_trend": saty_tr, "kc": kc,
@@ -654,7 +680,7 @@ def attach_context(results: list, ctx: dict) -> None:
     """Dla każdego setupu: czy trend rynku i sektora (EMA10/20 na interwałach setupu) jest zgodny z kierunkiem."""
     etf = {x["ticker"]: x for x in ctx["market"] + ctx["sectors"]}
     for r in results:
-        mkt_t = "SPY" if "SPX" in r["indices"] else "QQQ"
+        mkt_t = "DBC" if "CMD" in r["indices"] else ("SPY" if "SPX" in r["indices"] else "QQQ")
         sec_t = SECTOR_ETF.get(r["sector"])
         r["mkt_etf"], r["sec_etf"] = mkt_t, sec_t
         m, sc = etf.get(mkt_t), etf.get(sec_t)
@@ -673,7 +699,8 @@ def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=
     uni = get_universe()
     tickers = [t for t, m in uni.items()
                if universe_filter == "all" or (universe_filter == "ndx" and "NDX" in m["indices"])
-               or (universe_filter == "spx" and "SPX" in m["indices"])]
+               or (universe_filter == "spx" and "SPX" in m["indices"])
+               or (universe_filter == "cmd" and "CMD" in m["indices"])]
     tickers.sort()
     if limit:
         tickers = tickers[:limit]

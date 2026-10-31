@@ -226,7 +226,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
         <line x1="16.5" y1="6" x2="16.5" y2="23" stroke="var(--long)" stroke-width="1.5"/>
         <path d="M21.5 20 L25 11 L27 14" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div>Strat Scanner<small>Nasdaq 100 · S&amp;P 500</small></div>
+      <div>Strat Scanner<small>Nasdaq 100 · S&amp;P 500 · Surowce</small></div>
     </div>
     <div class="sp"></div>
     <div class="meta" id="meta">Brak skanu</div>
@@ -245,7 +245,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
     <div class="settings">
       <div class="field"><label>Rynek</label>
         <div class="seg" id="uni" data-testid="seg-universe">
-          <button data-v="all" class="on">Wszystkie</button><button data-v="ndx">Nasdaq 100</button><button data-v="spx">S&amp;P 500</button>
+          <button data-v="all" class="on">Wszystkie</button><button data-v="ndx">Nasdaq 100</button><button data-v="spx">S&amp;P 500</button><button data-v="cmd">Surowce</button>
         </div></div>
       <div class="field"><label>Sektor</label><select id="sector" data-testid="select-sector"><option value="">Wszystkie sektory</option></select></div>
       <div class="field"><label>Trend rynku / sektora</label><select id="ctxf" data-testid="select-context">
@@ -438,7 +438,7 @@ function filtered() {
     rrOk(x.rr, f.rr) &&
     (!f.flags.has("ema") || x.ema_ok) && (!f.flags.has("fvg") || x.fvg_ok) &&
     (!f.flags.has("pending") || !x.triggered) && (!f.flags.has("hidehit") || (!x.tp_hit && !x.sl_hit)) &&
-    (!f.q || x.r.ticker.includes(f.q) || x.r.name.toUpperCase().includes(f.q)) && gOk(x.r) && ctxOk(x));
+    (!f.q || x.r.ticker.includes(f.q) || dsp(x.r).includes(f.q) || x.r.name.toUpperCase().includes(f.q)) && gOk(x.r) && ctxOk(x));
 }
 const gradeEl = g => `<span class="grade g-${{ A: "Ap", B: "A", C: "B" }[g]}">${g}</span>`;
 const dirEl = (p, d) => `<span class="badge ${d === "long" ? "b-long" : "b-short"}">${d === "long" ? "▲" : "▼"} ${p}</span>`;
@@ -475,7 +475,7 @@ function render() {
   }
   const view = rows.slice(0, 400);
   $("#tbody").innerHTML = view.map((x, i) => `<tr data-i="${i}" data-testid="row-setup-${x.r.ticker}-${x.tf}-${x.idx}">
-    <td><div class="tkn"><span class="tk">${x.r.ticker}</span><span class="nm">${x.r.name}</span></div></td>
+    <td><div class="tkn"><span class="tk">${dsp(x.r)}</span><span class="nm">${x.r.name}</span></div></td>
     <td>${dirEl(x.pattern, x.dir)}</td>
     <td>${stEl(x)}</td>
     <td>${gradeEl(x.grade)}</td>
@@ -493,7 +493,7 @@ function render() {
   document.querySelectorAll("#tbody tr[data-i]").forEach(tr => tr.onclick = () => { const x = view[+tr.dataset.i]; openDetail(x.r.ticker, x.idx); });
 
   $("#cards").innerHTML = view.slice(0, 150).map((x, i) => `<div class="card" data-i="${i}" data-testid="card-setup-${x.r.ticker}-${x.tf}-${x.idx}">
-    <div class="top"><span class="tk">${x.r.ticker}</span><span class="cnm">${x.r.name}</span><span style="flex:1"></span>${gradeEl(x.grade)}</div>
+    <div class="top"><span class="tk">${dsp(x.r)}</span><span class="cnm">${x.r.name}</span><span style="flex:1"></span>${gradeEl(x.grade)}</div>
     <div class="top">${dirEl(x.pattern, x.dir)}<span class="mono" style="color:var(--muted);font-size:12px">${x.tf} · ${fmt(x.r.price)}</span></div>
     ${S.showLv ? `<div class="grid mono">
       <div><span>Wejście</span>${fmt(x.entry)}</div><div><span>SL</span>${fmt(x.sl)}</div><div><span>TP</span>${fmt(x.tp)}</div><div><span>R:R</span>${x.rr == null ? "—" : fmt(x.rr)}</div>
@@ -521,9 +521,9 @@ async function openDetail(t, setupIdx, keepTf) {
   const e = r.ema;
   dr.innerHTML = `
   <div class="dh">
-    <div style="flex:1"><h2>${r.ticker} <span class="dname">${r.name}</span> <span class="mono" style="font-size:15px;font-weight:500">${fmt(r.price)}</span> <span class="mono ${r.chg >= 0 ? "pos" : "neg"}" style="font-size:13px">${r.chg >= 0 ? "+" : ""}${fmt(r.chg)}%</span></h2>
+    <div style="flex:1"><h2>${dsp(r)} <span class="dname">${r.name}</span> <span class="mono" style="font-size:15px;font-weight:500">${fmt(r.price)}</span> <span class="mono ${r.chg >= 0 ? "pos" : "neg"}" style="font-size:13px">${r.chg >= 0 ? "+" : ""}${fmt(r.chg)}%</span></h2>
       <div class="sub">${secEtf(r) ? secEtf(r) + " · " : ""}${r.sector} · ${r.indices.join(", ")} · dane do ${r.last_date}</div></div>
-    <a class="tv" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=${r.ticker.replace("-", ".")}" data-testid="link-tradingview">TradingView ↗</a>
+    <a class="tv" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.tv || r.ticker.replace("-", "."))}" data-testid="link-tradingview">TradingView ↗</a>
     <button class="iconbtn" onclick="closeDetail()" aria-label="Zamknij" data-testid="button-close">✕</button>
   </div>
   <div class="dbody">
@@ -553,7 +553,7 @@ async function openDetail(t, setupIdx, keepTf) {
       <div class="box"><h4>Świece Strat</h4>${["D","W","M","Q"].map(k => `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${TFN[k]}</span><span class="mono">${r.candles[k] || "—"}</span></div>`).join("")}</div>
     </div>
     ${satyBox(r, su)}
-    ${su ? `<div class="box" id="optbox"><h4>Opcje do setupu <span style="margin-left:auto;display:flex;gap:6px"><button class="btn pri" id="optload" data-testid="button-load-options">Pokaż opcje (${srcName()})</button></span></h4><div id="optres" class="note">Łańcuch ${su.dir === "long" ? "CALL" : "PUT"} ${optCfgTxt()}. Kliknij, aby pobrać i policzyć wielkość pozycji.</div></div>` : ""}
+    ${su && !r.fut ? `<div class="box" id="optbox"><h4>Opcje do setupu <span style="margin-left:auto;display:flex;gap:6px"><button class="btn pri" id="optload" data-testid="button-load-options">Pokaż opcje (${srcName()})</button></span></h4><div id="optres" class="note">Łańcuch ${su.dir === "long" ? "CALL" : "PUT"} ${optCfgTxt()}. Kliknij, aby pobrać i policzyć wielkość pozycji.</div></div>` : ""}
     <div class="box"><h4>Niewypełnione FVG (najbliższe cenie)</h4>
       <table class="fvgt mono"><tbody>${["W", "M", "Q"].filter(k => r.fvg_list[k]).flatMap(k => r.fvg_list[k].map(f => `<tr><td>${k}</td><td class="${f.type === "bull" ? "pos" : "neg"}">${f.type === "bull" ? "Bycze" : "Niedźwiedzie"}</td><td>${fmt(f.bot)} – ${fmt(f.top)}</td><td>${f.date}</td><td style="text-align:right">${f.bot <= r.price && r.price <= f.top ? "cena w FVG" : fmt(f.dist_pct) + "%"}</td></tr>`)).join("") || "<tr><td>Brak</td></tr>"}</tbody></table>
     </div>
@@ -642,7 +642,8 @@ function ctxAlign(r, dir, tf) {
 function ctxOk(x, dir, tf) {
   if (!S.g.ctx) return true;
   const a = x.mkt_ok !== undefined && !dir ? x : ctxAlign(x.r || x, dir, tf);
-  return S.g.ctx === "mkt" ? a.mkt_ok : S.g.ctx === "sec" ? a.sec_ok : (a.mkt_ok && a.sec_ok);
+  const so = a.sec_ok || !(x.r || x).sec_etf;   // surowce nie mają ETF sektora — filtr sektora ich nie odrzuca
+  return S.g.ctx === "mkt" ? a.mkt_ok : S.g.ctx === "sec" ? so : (a.mkt_ok && so);
 }
 const tdot = (st, l, t) => `<span class="dot d-${st === "up" ? "up" : st === "down" ? "down" : "flat"}" title="${t}">${l}</span>`;
 function ctxEl(x, dir, tf) {
@@ -651,7 +652,7 @@ function ctxEl(x, dir, tf) {
   return `<span class="dots">${tdot(a.mkt, "R", `Rynek ${r.mkt_etf}: trend ${TRN[a.mkt] || "—"} (EMA10/20 ${rt})`)}${tdot(a.sec, "S", `Sektor ${r.sec_etf || "—"} (${r.sector}): trend ${TRN[a.sec] || "—"} (EMA10/20 ${rt})`)}</span>`;
 }
 function gOk(r) {
-  return (S.g.uni === "all" || r.indices.includes(S.g.uni === "ndx" ? "NDX" : "SPX")) && (!S.g.sector || r.sector === S.g.sector);
+  return (S.g.uni === "all" || r.indices.includes({ ndx: "NDX", spx: "SPX", cmd: "CMD" }[S.g.uni])) && (!S.g.sector || r.sector === S.g.sector);
 }
 function fillSectors() {
   const secs = [...new Set((S.data?.results || []).map(r => r.sector).filter(Boolean))].sort();
@@ -686,7 +687,8 @@ function tbl(id, cols, rows, onRow) {
 }
 const chipsHtml = (id, opts, cur) => `<div class="chips" id="${id}">${opts.map(([v, l]) => `<button class="chip ${String(cur) === String(v) ? "on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>`;
 function bindChips(id, fn) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.onclick = () => { fn(b.dataset.v); renderTab(); }); }
-const tkCell = x => `<div class="tkn"><span class="tk">${x.r.ticker}</span><span class="nm">${x.r.name}</span></div>`;
+const dsp = r => r.disp || r.ticker;
+const tkCell = x => `<div class="tkn"><span class="tk">${dsp(x.r)}</span><span class="nm">${x.r.name}</span></div>`;
 const pdot = (ok, l, t) => `<span class="dot pd ${ok ? "d-ok" : "d-no"}" title="${t}">${l}</span>`;
 const planDots = x => x.plan ? `<span class="dots">${pdot(x.plan.fvg, "FVG", x.plan_fvg ? `FVG ${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "– cena w strefie" : x.plan_fvg.dist + "%"}` : "brak FVG " + (x.tf === "M" ? "M/Q" : "W/M") + " ≤ 3%")}${pdot(x.plan.ema, "EMA", "EMA10/20 " + (x.plan_ema_tfs || []).join("+"))}${pdot(x.plan.ftfc, "TF", "FTFC " + x.ftfc_tfs.join("+"))}${pdot(x.plan.saty, "ATR", "Saty ATR (" + (x.plan_saty_tf === "Q" ? "Position, 3M" : "Swing, M") + "): wejście < 0,618 ATR od zamknięcia poprzedniego " + (x.plan_saty_tf === "Q" ? "kwartału" : "miesiąca") + "; teraz " + fmt(x.saty_pos_entry, 2))}${pdot(x.plan.kc, "KC", "Świeca sygnałowa w/za pasmem Keltner 0,5 (" + fmt(x.kc_pos, 2) + " ATR od EMA20)")}${pdot(x.plan.rr, "RR", "R:R do celu ≥ 2 (" + (x.rr_plan == null ? "—" : fmt(x.rr_plan)) + ")")}</span> <span class="mono" style="color:var(--muted)">${x.plan_score}/6</span>` : "—";
 const lvCols = () => S.showLv ? [
@@ -697,6 +699,7 @@ const lvCols = () => S.showLv ? [
   { k: "dist", l: "Do wejścia", r: 1, f: x => (x.dist_entry_pct > 0 ? "+" : "") + fmt(x.dist_entry_pct) + "%", s: x => Math.abs(x.dist_entry_pct) }] : [];
 const optCol = () => ({ k: "opt", l: `Opcja (${srcName()})`, f: x => optMini(x.r.ticker, x) });
 function optMini(t, x) {
+  if (x.r.fut) return `<span class="no" title="Kontrakt futures — opcje na futures nie są dostępne w Cboe. Do opcji użyj ETF (np. GLD, USO, UNG) albo IBKR.">futures</span>`;
   const res = S.optCache[optKey(t, x)];
   if (!res) return `<button class="btn" data-opt="1" data-testid="button-opt-${t}">Sprawdź</button>`;
   if (res.error) return `<span class="no" title="${res.error}">błąd</span> <button class="btn" data-opt="1">↻</button>`;
@@ -951,7 +954,7 @@ function renderOkazje(el) {
 /* automatyczne dociąganie opcji dla widocznych pozycji (bez klikania) */
 S.optQ = new Set(); S.optBusy = false;
 function autoOpt(rows) {
-  rows.forEach(x => { const k = optKey(x.r.ticker, x); if (!S.optCache[k]) S.optQ.add(JSON.stringify([x.r.ticker, x.dir === "long" ? "C" : "P", x.tf === "M"])); });
+  rows.forEach(x => { const k = optKey(x.r.ticker, x); if (!S.optCache[k] && !x.r.fut) S.optQ.add(JSON.stringify([x.r.ticker, x.dir === "long" ? "C" : "P", x.tf === "M"])); });
   if (S.optBusy) return;
   (async () => {
     S.optBusy = true;

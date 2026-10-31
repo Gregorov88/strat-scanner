@@ -54,6 +54,8 @@ def _opt_candidates(sc, cap=50, cap_m=20):
     D/W — wygasania 5–31 dni, M — 60–90 dni (osobny klucz „|M”)."""
     c = []
     for r in sc.get("results", []):
+        if r.get("fut"):          # kontrakty futures — brak opcji akcyjnych w Cboe
+            continue
         for su in r["setups"]:
             if su.get("triggered") or su.get("tp_hit") or su.get("sl_hit"):
                 continue
