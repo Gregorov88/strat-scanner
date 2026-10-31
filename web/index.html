@@ -174,6 +174,42 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   #chart{height:280px}
 }
+
+/* tabs */
+.tabs{display:flex;gap:4px;overflow-x:auto;margin:0 0 14px;border-bottom:1px solid var(--border);scrollbar-width:none}
+.tabs button{border:0;background:transparent;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs button small{font-weight:500;color:var(--faint);margin-left:5px;font-family:var(--font-mono);font-size:11px}
+.tbx{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow-x:auto;margin-bottom:18px}
+.tbx table{min-width:720px}
+.tbx thead th{position:static}
+.sec-h{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:4px 0 12px}
+.sec-h h3{font-size:15px;font-weight:700}
+.sec-h .desc{font-size:12.5px;color:var(--muted);flex-basis:100%}
+.pd{width:auto;min-width:18px;padding:0 4px}
+.d-ok{background:var(--long-bg);color:var(--long)}
+.d-no{background:var(--surface-2);color:var(--faint)}
+.btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 11px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn:disabled{opacity:.55;cursor:progress}
+.optmini{font-size:12px;white-space:nowrap}
+.optt{width:100%;font-size:12px;border-collapse:collapse}
+.optt thead th{position:sticky;top:0;z-index:1;background:var(--surface);cursor:default}
+.optt th{font-size:10.5px;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
+.optt td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
+.optt tr.gr td{color:var(--long)}
+.optt tr.sel td{background:var(--gold-bg)}
+.optt tbody tr{cursor:pointer}
+.oscroll{overflow-x:auto;max-height:320px;overflow-y:auto}
+.planbox pre{white-space:pre-wrap;font-family:var(--font-mono);font-size:12px;background:var(--surface-2);border-radius:8px;padding:10px;line-height:1.55}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sets{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.sets .num{width:100%}
+.stat{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.warn{font-size:12.5px;color:var(--gold);background:var(--gold-bg);border-radius:8px;padding:8px 10px}
+.scen{font-size:12.5px;color:var(--muted);white-space:normal;min-width:260px;max-width:420px}
+@media (max-width:820px){.g4{grid-template-columns:1fr 1fr}}
+.field label.toggle{text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400}
 .clabel{font-size:11px;color:var(--muted);letter-spacing:.06em;margin-right:4px;align-self:center}
 </style>
 </head>
@@ -210,19 +246,29 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
         <div class="seg" id="uni" data-testid="seg-universe">
           <button data-v="all" class="on">Wszystkie</button><button data-v="ndx">Nasdaq 100</button><button data-v="spx">S&amp;P 500</button>
         </div></div>
-      <div class="field"><label>Setup wejścia na</label>
-        <div class="seg" id="stf" data-testid="seg-setup-tf"><button data-v="D" class="on">Dziennym</button><button data-v="W">Tygodniowym</button></div>
-        <div class="hint" id="stfhint"></div></div>
-      <div class="field"><label>FVG</label><div class="fixed">w FVG lub ≤ 3% od niego</div></div>
+      <div class="field"><label>Sektor</label><select id="sector" data-testid="select-sector"><option value="">Wszystkie sektory</option></select></div>
+      <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="yahoo">Yahoo</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
+      <div class="field"><label>Autoodświeżanie</label><label class="toggle" data-testid="toggle-auto"><input type="checkbox" id="auto"><span class="sw"></span>co 30 min w sesji</label></div>
       <div class="field"><label>Eksport</label><a class="tv" id="csv" href="#" data-testid="link-export">Pobierz CSV</a></div>
     </div>
     <div class="progress" id="prog"><div class="bar"><i id="barfill"></i></div><p id="progtxt">Pobieranie danych…</p></div>
   </section>
 
+  <nav class="tabs" id="tabs">
+    <button data-v="setups" class="on" data-testid="tab-setups">Setupy</button>
+    <button data-v="weekly" data-testid="tab-weekly">Plan tygodniowy<small id="n-weekly"></small></button>
+    <button data-v="f2" data-testid="tab-f2">F2 dzienny<small id="n-f2"></small></button>
+    <button data-v="mfvg" data-testid="tab-mfvg">Korekty do FVG M<small id="n-mfvg"></small></button>
+    <button data-v="bt" data-testid="tab-bt">Backtest</button>
+    <button data-v="cfg" data-testid="tab-cfg">Ustawienia</button>
+  </nav>
+  <div id="tab-setups">
   <section class="kpis" id="kpis"></section>
 
   <section class="filters">
     <input class="search" id="q" placeholder="Szukaj tickera lub spółki" data-testid="input-search">
+    <div class="seg" id="stf" data-testid="seg-setup-tf"><button data-v="D" class="on">Dzienny</button><button data-v="W">Tygodniowy</button></div>
+    <span class="hint" id="stfhint" style="margin:0"></span>
     <div class="chips" id="fdir">
       <button class="chip on" data-v="all">Long + Short</button><button class="chip" data-v="long">Long</button><button class="chip" data-v="short">Short</button>
     </div>
@@ -249,6 +295,8 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
     </table>
   </section>
   <section class="cards" id="cards"></section>
+  </div>
+  <div id="tab-other" style="display:none"></div>
 
   <footer>
     <div class="help box" style="margin-bottom:14px">
@@ -258,7 +306,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
       <b>Status:</b> „Oczekuje” = świeca sygnałowa zamknięta, czekamy na przebicie triggera. „W trakcie” = świeca sygnałowa jeszcze się formuje.<br>
       <b>Ocena</b> — trzy warunki: (1) FTFC — setup dzienny D+W, tygodniowy W+M (liczone dla ceny triggera: long powyżej otwarcia bieżącej świecy, short poniżej); (2) EMA10/20 — setup dzienny zgodna na D, W i M, tygodniowy na W, M i Q (long: EMA10 &gt; EMA20, short: EMA10 &lt; EMA20); (3) FVG — setup dzienny w FVG tygodniowym lub ≤ 3% od niego, tygodniowy w FVG miesięcznym lub ≤ 3% (long: bycze, short: niedźwiedzie). <b>A</b> = wszystkie trzy, <b>B</b> = dwa z trzech, <b>C</b> = jeden. Interwały niższe niż dzienny nie są brane pod uwagę.
     </div>
-    Dane: Yahoo Finance (dzienne, agregowane do W/M/Q). Narzędzie analityczne, nie stanowi rekomendacji inwestycyjnej.
+    Dane cenowe: Yahoo Finance (dzienne, agregowane do W/M/Q). Opcje: Yahoo (opóźnione ok. 15 min) albo IBKR z Twojego TWS przez lokalny most. Narzędzie analityczne, nie stanowi rekomendacji inwestycyjnej.
   </footer>
 </main>
 
@@ -268,7 +316,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 <script>
 const API = (() => { const p = "__PORT_8000__"; if (!p.startsWith("__")) return p; return location.port === "5500" ? "http://localhost:8000" : ""; })();
 const $ = s => document.querySelector(s);
-const S = { data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
+const S = { g: { uni: "all", sector: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
 const RULE = { D: { fvg: "W", ftfc: ["D","W"], ema: ["D","W","M"], name: "dzienny" }, W: { fvg: "M", ftfc: ["W","M"], ema: ["W","M","Q"], name: "tygodniowy" } };
 const GR = { "A": 3, "B": 2, "C": 1 };
 const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -284,7 +332,7 @@ function seg(id, multi) {
     else { document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove("on")); b.classList.add("on"); }
   });
 }
-seg("uni");
+document.querySelectorAll("#uni button").forEach(b => b.onclick = () => { document.querySelectorAll("#uni button").forEach(x => x.classList.remove("on")); b.classList.add("on"); S.g.uni = b.dataset.v; render(); renderTab(); });
 function setStf(v) { S.stf = v; const r = RULE[v]; $("#stfhint").textContent = `FTFC ${r.ftfc.join("+")} · EMA ${r.ema.join("+")} · FVG ${r.fvg} ≤ 3%`; }
 document.querySelectorAll("#stf button").forEach(b => b.onclick = () => { document.querySelectorAll("#stf button").forEach(x => x.classList.remove("on")); b.classList.add("on"); setStf(b.dataset.v); render(); });
 setStf("D");
@@ -317,7 +365,7 @@ $("#csv").onclick = e => { e.preventDefault(); window.open(API + "/api/export.cs
 
 /* scanning */
 $("#scan").onclick = async () => {
-  const body = { universe: segVal("uni"), ema_tf: "setup", near_w: 3, near_m: 3 };
+  const body = { universe: "all", ema_tf: "setup" };
   $("#scan").disabled = true; $("#scanlbl").textContent = "Skanowanie…"; $("#prog").classList.add("on");
   try { await fetch(API + "/api/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); } catch (e) { scanDone("Brak połączenia z serwerem"); return; }
   poll();
@@ -326,7 +374,7 @@ async function poll() {
   try {
     const s = await (await fetch(API + "/api/status")).json();
     $("#barfill").style.width = (s.progress * 100).toFixed(0) + "%";
-    $("#progtxt").textContent = `${s.stage || "Start"} · ${(s.progress * 100).toFixed(0)}% — pobieranie ~520 spółek trwa zwykle 40–70 s`;
+    $("#progtxt").textContent = `${s.stage || "Start"} · ${(s.progress * 100).toFixed(0)}% — ${s.data && s.data.tickers ? "aktualizacja ostatnich notowań trwa zwykle 20–60 s" : "pierwsze pobranie 10 lat historii trwa ok. 5 min"}`;
     if (s.running) return setTimeout(poll, 1200);
     if (s.error) return scanDone("Błąd: " + s.error);
     await load(); scanDone();
@@ -343,8 +391,9 @@ async function load() {
     S.data = d;
     S.rows = [];
     for (const r of d.results) r.setups.forEach((s, i) => S.rows.push({ ...s, r, idx: i }));
-    $("#meta").innerHTML = d.generated_at ? `Skan: <b>${d.generated_at}</b> · dane do <b>${d.data_date}</b> · ${d.count} spółek` : "Brak skanu — kliknij Skanuj";
-    render();
+    $("#meta").innerHTML = d.generated_at ? `Skan: <b>${d.generated_at}</b>${d.auto ? " (auto)" : ""} · dane do <b>${d.data_date}</b> · ${d.count} spółek` : "Brak skanu — kliknij Skanuj";
+    S.gen = d.generated_at; S.cache = {};
+    fillSectors(); render(); renderTab();
   } catch (e) {
     $("#tbody").innerHTML = `<tr><td colspan="16"><div class="empty"><h3>Serwer skanera jest niedostępny</h3>Spróbuj ponownie za chwilę.</div></td></tr>`;
   }
@@ -381,7 +430,7 @@ function filtered() {
     rrOk(x.rr, f.rr) &&
     (!f.flags.has("ema") || x.ema_ok) && (!f.flags.has("fvg") || x.fvg_ok) &&
     (!f.flags.has("pending") || !x.triggered) && (!f.flags.has("hidehit") || (!x.tp_hit && !x.sl_hit)) &&
-    (!f.q || x.r.ticker.includes(f.q) || x.r.name.toUpperCase().includes(f.q)));
+    (!f.q || x.r.ticker.includes(f.q) || x.r.name.toUpperCase().includes(f.q)) && gOk(x.r));
 }
 const gradeEl = g => `<span class="grade g-${{ A: "Ap", B: "A", C: "B" }[g]}">${g}</span>`;
 const dirEl = (p, d) => `<span class="badge ${d === "long" ? "b-long" : "b-short"}">${d === "long" ? "▲" : "▼"} ${p}</span>`;
@@ -457,7 +506,8 @@ async function openDetail(t, setupIdx, keepTf) {
   let r = S.cache?.[t];
   if (!r) { r = await (await fetch(API + "/api/ticker/" + t)).json(); S.cache = { ...(S.cache || {}), [t]: r }; }
   const su = r.setups[setupIdx] || r.setups[0];
-  const chartTf = keepTf ? S.cur.chartTf : (su ? su.tf : S.stf);
+  const vtf = su ? su.tf : S.stf;
+  const chartTf = keepTf ? S.cur.chartTf : vtf;
   S.cur = { ticker: t, setupIdx, chartTf };
   const e = r.ema;
   dr.innerHTML = `
@@ -473,7 +523,7 @@ async function openDetail(t, setupIdx, keepTf) {
       <div id="chart"></div>
       <div class="legend"><span><i style="background:#e8b44c"></i>EMA10</span><span><i style="background:#6aa0ff"></i>EMA20</span><span><i style="background:var(--long)"></i>Bycze FVG</span><span><i style="background:var(--short)"></i>Niedźwiedzie FVG</span>${S.showLv ? "<span>Linie przerywane: wejście / SL / TP wybranego setupu</span>" : ""}</div>
     </div>
-    ${r.setups.length ? `<div class="box"><h4>Setupy ${TFN[S.stf].toLowerCase()} (${r.setups.filter(s => s.tf === S.stf).length})</h4><div style="display:grid;gap:8px">${r.setups.map((s, i) => s.tf !== S.stf ? "" : `
+    ${r.setups.length ? `<div class="box"><h4>Setupy ${TFN[vtf].toLowerCase()} (${r.setups.filter(s => s.tf === vtf).length})</h4><div style="display:grid;gap:8px">${r.setups.map((s, i) => s.tf !== vtf ? "" : `
       <div class="setup" style="${i === setupIdx ? "border-color:var(--text)" : ""};cursor:pointer" onclick="openDetail('${r.ticker}', ${i})">
         <div class="row">${dirEl(s.pattern, s.dir)}<span class="mono" style="color:var(--muted)">${TFN[s.tf]}</span>${stEl(s)}<span style="flex:1"></span>${gradeEl(s.grade)}</div>
         ${S.showLv ? `<div class="levels mono">
@@ -490,15 +540,19 @@ async function openDetail(t, setupIdx, keepTf) {
       </div>`).join("")}</div></div>` : ""}
     <div class="g3">
       <div class="box"><h4>FTFC teraz (cena vs open)</h4>${["D","W","M","Q"].map(k => `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${TFN[k]}</span><span class="${r.ftfc[k] === "up" ? "pos" : r.ftfc[k] === "down" ? "neg" : ""}">${r.ftfc[k] === "up" ? "▲ nad open" : r.ftfc[k] === "down" ? "▼ pod open" : "= open"}</span></div>`).join("")}</div>
-      <div class="box"><h4>EMA10 / EMA20</h4>${RULE[S.stf].ema.map(k => e[k] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${k}</span><span class="mono ${e[k].trend === "up" ? "pos" : "neg"}">${fmt(e[k].e10)} / ${fmt(e[k].e20)} ${e[k].trend === "up" ? "▲" : "▼"}</span></div>` : `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${k}</span><span style="color:var(--muted)">za krótka historia</span></div>`).join("")}</div>
+      <div class="box"><h4>EMA10 / EMA20</h4>${RULE[vtf].ema.map(k => e[k] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${k}</span><span class="mono ${e[k].trend === "up" ? "pos" : "neg"}">${fmt(e[k].e10)} / ${fmt(e[k].e20)} ${e[k].trend === "up" ? "▲" : "▼"}</span></div>` : `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${k}</span><span style="color:var(--muted)">za krótka historia</span></div>`).join("")}</div>
       <div class="box"><h4>Świece Strat</h4>${["D","W","M","Q"].map(k => `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${TFN[k]}</span><span class="mono">${r.candles[k] || "—"}</span></div>`).join("")}</div>
     </div>
+    ${satyBox(r, su)}
+    ${su ? `<div class="box" id="optbox"><h4>Opcje do setupu <span style="margin-left:auto;display:flex;gap:6px"><button class="btn pri" id="optload" data-testid="button-load-options">Pokaż opcje (${srcName()})</button></span></h4><div id="optres" class="note">Łańcuch ${su.dir === "long" ? "CALL" : "PUT"} ${optCfgTxt()}. Kliknij, aby pobrać i policzyć wielkość pozycji.</div></div>` : ""}
     <div class="box"><h4>Niewypełnione FVG (najbliższe cenie)</h4>
-      <table class="fvgt mono"><tbody>${[RULE[S.stf].fvg].flatMap(k => r.fvg_list[k].map(f => `<tr><td>${k}</td><td class="${f.type === "bull" ? "pos" : "neg"}">${f.type === "bull" ? "Bycze" : "Niedźwiedzie"}</td><td>${fmt(f.bot)} – ${fmt(f.top)}</td><td>${f.date}</td><td style="text-align:right">${f.bot <= r.price && r.price <= f.top ? "cena w FVG" : fmt(f.dist_pct) + "%"}</td></tr>`)).join("") || "<tr><td>Brak</td></tr>"}</tbody></table>
+      <table class="fvgt mono"><tbody>${["W", "M"].flatMap(k => r.fvg_list[k].map(f => `<tr><td>${k}</td><td class="${f.type === "bull" ? "pos" : "neg"}">${f.type === "bull" ? "Bycze" : "Niedźwiedzie"}</td><td>${fmt(f.bot)} – ${fmt(f.top)}</td><td>${f.date}</td><td style="text-align:right">${f.bot <= r.price && r.price <= f.top ? "cena w FVG" : fmt(f.dist_pct) + "%"}</td></tr>`)).join("") || "<tr><td>Brak</td></tr>"}</tbody></table>
     </div>
   </div>`;
   document.querySelectorAll("#ctf button").forEach(b => b.onclick = () => { S.cur.chartTf = b.dataset.v; openDetail(t, setupIdx, true); });
   drawChart(r, chartTf, su && su.tf === chartTf ? su : null);
+  if (su && $("#optload")) $("#optload").onclick = () => loadOptions(r, su);
+  if (su && S.optCache[optKey(r.ticker, su)]) showOptions(r, su, S.optCache[optKey(r.ticker, su)]);
 }
 
 function drawChart(r, tf, su) {
@@ -519,7 +573,7 @@ function drawChart(r, tf, su) {
   e10.setData(data.map(b => ({ time: b[0], value: b[5] }))); e20.setData(data.map(b => ({ time: b[0], value: b[6] })));
   const lo = Math.min(...data.map(b => b[3])), hi = Math.max(...data.map(b => b[2]));
   // FVG zones (W & M) visible in price range
-  for (const k of [RULE[S.stf].fvg]) for (const f of r.fvg_list[k].slice(0, 4)) {
+  for (const k of [RULE[su ? su.tf : S.stf].fvg]) for (const f of r.fvg_list[k].slice(0, 4)) {
     if (f.top < lo * 0.9 || f.bot > hi * 1.1) continue;
     const col = f.type === "bull" ? c("--long") : c("--short");
     cdl.createPriceLine({ price: f.top, color: col, lineWidth: 1, lineStyle: 0, axisLabelVisible: false, title: `FVG ${k}` });
@@ -532,6 +586,381 @@ function drawChart(r, tf, su) {
   }
   ch.timeScale().fitContent();
 }
+
+/* ======================= ustawienia ======================= */
+const DEF = { src: "yahoo", bridge: "http://127.0.0.1:8765", risk: 1000, prof: "20/50/100", delta: 0.7, tol: 0.05,
+  min_dte: 5, max_dte: 31, oi: 0, vol: 10, range: 20, otm: false };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+S.cfg = { ...DEF, ...JSON.parse(store.get("ss_cfg") || "{}") };
+S.optCache = {}; S.optSel = {}; S.tab = "setups"; S.tsort = {};
+S.wf = { dir: "all", min: 4, trend: 1 }; S.ff = { dir: "all", ema: 4 }; S.mf = { dir: "all" }; S.bf = { tickers: "", years: 0 };
+const saveCfg = () => store.set("ss_cfg", JSON.stringify(S.cfg));
+const srcName = () => S.cfg.src === "ibkr" ? "IBKR" : "Yahoo";
+const optCfgTxt = () => `· delta ${S.cfg.delta} ± ${S.cfg.tol} · ${S.cfg.min_dte}–${S.cfg.max_dte} dni · OI ≥ ${S.cfg.oi} · wolumen ≥ ${S.cfg.vol} · ${S.cfg.otm ? "OTM" : "ITM"}`;
+function setSrc(v) {
+  S.cfg.src = v; saveCfg();
+  document.querySelectorAll("#osrc button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  $("#srchint").textContent = v === "ibkr" ? "wymaga mostu na PC z TWS" : "opóźnione ok. 15 min";
+}
+document.querySelectorAll("#osrc button").forEach(b => b.onclick = () => { setSrc(b.dataset.v); renderTab(); });
+setSrc(S.cfg.src);
+$("#sector").onchange = e => { S.g.sector = e.target.value; render(); renderTab(); };
+function gOk(r) {
+  return (S.g.uni === "all" || r.indices.includes(S.g.uni === "ndx" ? "NDX" : "SPX")) && (!S.g.sector || r.sector === S.g.sector);
+}
+function fillSectors() {
+  const secs = [...new Set((S.data?.results || []).map(r => r.sector).filter(Boolean))].sort();
+  $("#sector").innerHTML = `<option value="">Wszystkie sektory</option>` + secs.map(x => `<option ${x === S.g.sector ? "selected" : ""}>${x}</option>`).join("");
+}
+$("#auto").onchange = async e => { try { await fetch(API + "/api/auto/" + (e.target.checked ? 1 : 0), { method: "POST" }); } catch (_) {} };
+
+/* ======================= zakładki ======================= */
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+  S.tab = b.dataset.v;
+  $("#tab-setups").style.display = S.tab === "setups" ? "" : "none";
+  $("#tab-other").style.display = S.tab === "setups" ? "none" : "";
+  renderTab();
+});
+
+function tbl(id, cols, rows, onRow) {
+  const st = S.tsort[id];
+  if (st) { const c = cols.find(c => c.k === st.k); if (c && c.s) rows = [...rows].sort((a, b) => { const va = c.s(a), vb = c.s(b); return (va > vb ? 1 : va < vb ? -1 : 0) * st.d; }); }
+  const html = `<div class="tbx"><table data-t="${id}"><thead><tr>${cols.map(c => `<th class="${c.r ? "r" : ""}" data-k="${c.k}" title="${c.t || ""}">${c.l}${st && st.k === c.k ? `<span class="ar">${st.d > 0 ? "↑" : "↓"}</span>` : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.length ? rows.map((x, i) => `<tr data-i="${i}">${cols.map(c => `<td class="${c.r ? "r mono" : ""}">${c.f(x)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${cols.length}"><div class="empty"><h3>Brak pozycji</h3>Zmień filtry albo uruchom skan.</div></td></tr>`}</tbody></table></div>`;
+  return { html, bind() {
+    const t = document.querySelector(`table[data-t="${id}"]`); if (!t) return;
+    t.querySelectorAll("th").forEach(th => th.onclick = () => { const k = th.dataset.k; const c = cols.find(c => c.k === k); if (!c.s) return; S.tsort[id] = { k, d: S.tsort[id] && S.tsort[id].k === k ? -S.tsort[id].d : -1 }; renderTab(); });
+    if (onRow) t.querySelectorAll("tbody tr[data-i]").forEach(tr => tr.onclick = ev => { if (ev.target.closest("button")) return; onRow(rows[+tr.dataset.i]); });
+    t.querySelectorAll("button[data-opt]").forEach(btn => btn.onclick = ev => { ev.stopPropagation(); const x = rows[+btn.closest("tr").dataset.i]; quickOpt(x.r, x, btn); });
+  } };
+}
+const chipsHtml = (id, opts, cur) => `<div class="chips" id="${id}">${opts.map(([v, l]) => `<button class="chip ${String(cur) === String(v) ? "on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>`;
+function bindChips(id, fn) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.onclick = () => { fn(b.dataset.v); renderTab(); }); }
+const tkCell = x => `<div class="tkn"><span class="tk">${x.r.ticker}</span><span class="nm">${x.r.name}</span></div>`;
+const pdot = (ok, l, t) => `<span class="dot pd ${ok ? "d-ok" : "d-no"}" title="${t}">${l}</span>`;
+const planDots = x => x.plan ? `<span class="dots">${pdot(x.plan.fvg, "FVG", x.plan_fvg ? `FVG ${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "– cena w strefie" : x.plan_fvg.dist + "%"}` : "brak FVG W/M ≤ 3%")}${pdot(x.plan.ema, "EMA", "EMA10/20 " + (x.plan_ema_tfs || []).join("+"))}${pdot(x.plan.ftfc, "TF", "FTFC " + x.ftfc_tfs.join("+"))}${pdot(x.plan.saty, "ATR", "Saty ATR (M): wejście < 0,618 ATR od zamknięcia poprzedniego miesiąca; teraz " + fmt(x.saty_pos_entry, 2))}${pdot(x.plan.kc, "KC", "Świeca sygnałowa w/za pasmem Keltner 0,5 (" + fmt(x.kc_pos, 2) + " ATR od EMA20)")}${pdot(x.plan.rr, "RR", "R:R do celu ≥ 2 (" + (x.rr_plan == null ? "—" : fmt(x.rr_plan)) + ")")}</span> <span class="mono" style="color:var(--muted)">${x.plan_score}/6</span>` : "—";
+const lvCols = () => S.showLv ? [
+  { k: "entry", l: "Wejście", r: 1, f: x => fmt(x.entry), s: x => x.entry },
+  { k: "sl", l: "SL", r: 1, f: x => fmt(x.sl), s: x => x.sl },
+  { k: "tp", l: "Cel", r: 1, t: "Pivot, a gdy go brak — najbliższy poziom Saty ATR", f: x => x.tp_plan == null ? "—" : fmt(x.tp_plan) + (x.tp == null && x.saty_tp_lvl ? `<span class="hit">ATR ${x.saty_tp_lvl}</span>` : ""), s: x => x.tp_plan ?? -1 },
+  { k: "rr", l: "R:R", r: 1, f: x => x.rr_plan == null ? "—" : fmt(x.rr_plan), s: x => x.rr_plan ?? -1 },
+  { k: "dist", l: "Do wejścia", r: 1, f: x => (x.dist_entry_pct > 0 ? "+" : "") + fmt(x.dist_entry_pct) + "%", s: x => Math.abs(x.dist_entry_pct) }] : [];
+const optCol = () => ({ k: "opt", l: `Opcja (${srcName()})`, f: x => optMini(x.r.ticker, x) });
+function optMini(t, x) {
+  const res = S.optCache[optKey(t, x)];
+  if (!res) return `<button class="btn" data-opt="1" data-testid="button-opt-${t}">Sprawdź</button>`;
+  if (res.error) return `<span class="no" title="${res.error}">błąd</span> <button class="btn" data-opt="1">↻</button>`;
+  const o = res.best;
+  if (!o) return `<span class="no">brak płynnych</span>`;
+  return `<span class="optmini mono ${o.green ? "pos" : ""}" title="OI ${o.oi} · Ext/Price ${o.ext_price}% · spread ${o.spread_pct ?? "—"}%">${o.expiration.slice(5)} ${o.strike}${res.right} Δ${fmt(Math.abs(o.delta), 2)} $${fmt(optMid(o))}${o.green ? " ✓" : ""}</span>`;
+}
+const optKey = (t, su) => t + "|" + (su.dir === "long" ? "C" : "P");
+const optMid = o => o.bid != null ? (o.bid + o.ask) / 2 : o.last;
+
+/* ======================= opcje ======================= */
+async function fetchOptions(t, right) {
+  const c = S.cfg;
+  const q = new URLSearchParams({ ticker: t, type: right, delta: c.delta, tol: c.tol, min_dte: c.min_dte, max_dte: c.max_dte, oi: c.oi, vol: c.vol, range: c.range, otm: c.otm ? 1 : 0 });
+  if (c.src === "ibkr") {
+    try {
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 150000);
+      const r = await fetch(c.bridge.replace(/\/$/, "") + "/options?" + q, { signal: ctl.signal }); clearTimeout(tm);
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j;
+    } catch (e) {
+      const j = await fetchYahoo(t, q); j.fallback = "Most IBKR niedostępny (" + (e.message || e) + ") — pokazuję dane Yahoo."; return j;
+    }
+  }
+  return fetchYahoo(t, q);
+}
+async function fetchYahoo(t, q) {
+  const r = await fetch(API + "/api/options/" + encodeURIComponent(t) + "?" + q);
+  const j = await r.json(); if (!r.ok) throw new Error(j.detail || r.status); return j;
+}
+async function quickOpt(r, su, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "…"; }
+  try { S.optCache[optKey(r.ticker, su)] = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P"); }
+  catch (e) { S.optCache[optKey(r.ticker, su)] = { error: String(e.message || e) }; }
+  renderTab();
+}
+async function batchOpt(rows, btn) {
+  btn.disabled = true;
+  for (let i = 0; i < rows.length; i++) {
+    btn.textContent = `Sprawdzam ${i + 1}/${rows.length}…`;
+    const x = rows[i]; if (S.optCache[optKey(x.r.ticker, x)]) continue;
+    try { S.optCache[optKey(x.r.ticker, x)] = await fetchOptions(x.r.ticker, x.dir === "long" ? "C" : "P"); }
+    catch (e) { S.optCache[optKey(x.r.ticker, x)] = { error: String(e.message || e) }; }
+    renderTab();
+  }
+}
+async function loadOptions(r, su) {
+  const b = $("#optload"); b.disabled = true; b.textContent = "Pobieranie…";
+  $("#optres").innerHTML = `<div class="note">Pobieram łańcuch ${su.dir === "long" ? "CALL" : "PUT"} z ${srcName()}${S.cfg.src === "ibkr" ? " — TWS notuje kontrakty w paczkach, to może potrwać 20–90 s" : ""}…</div>`;
+  try { const res = await fetchOptions(r.ticker, su.dir === "long" ? "C" : "P"); S.optCache[optKey(r.ticker, su)] = res; showOptions(r, su, res); }
+  catch (e) { $("#optres").innerHTML = `<div class="warn">Nie udało się pobrać opcji: ${e.message || e}</div>`; }
+  b.disabled = false; b.textContent = `Odśwież (${srcName()})`;
+}
+function showOptions(r, su, res) {
+  if (!$("#optres")) return;
+  if (res.error) { $("#optres").innerHTML = `<div class="warn">${res.error}</div>`; return; }
+  const key = optKey(r.ticker, su);
+  const sel = res.rows.find(o => o.contract === S.optSel[key]) || res.best;
+  const head = `<div class="note" style="margin-bottom:8px">${res.fallback ? `<div class="warn" style="margin-bottom:6px">${res.fallback}</div>` : ""}Źródło: <b>${res.source === "ibkr" ? "IBKR" : "Yahoo"}</b> · cena ${fmt(res.spot)} · ${res.asof} · wygasania: ${res.expirations.join(", ") || "brak w oknie"} · ${res.rows.length} z ${res.quoted} kontraktów spełnia filtry${res.no_delta ? ` · ${res.no_delta} bez delty` : ""}. Zielone: OI &gt; 250 i Ext/Price &lt; 30%. Kliknij wiersz, aby wybrać.</div>`;
+  if (!res.rows.length) { $("#optres").innerHTML = head + `<div class="warn">Brak kontraktów dla tych filtrów. Przed otwarciem sesji ustaw wolumen 0 w Ustawieniach albo poszerz tolerancję delty.</div>`; return; }
+  const tb = `<div class="oscroll"><table class="optt mono"><thead><tr><th>Wygasa</th><th>DTE</th><th>Strike</th><th>Cena</th><th>Bid</th><th>Ask</th><th>Spread %</th><th>OI</th><th>Vol</th><th>Wewn.</th><th>Zewn.</th><th>Ext/Int</th><th>Ext/Price</th><th>Delta</th><th>Kwot.</th></tr></thead><tbody>
+    ${res.rows.map((o, i) => `<tr data-i="${i}" class="${o.green ? "gr" : ""} ${sel && o.contract === sel.contract ? "sel" : ""}"><td>${o.expiration}</td><td>${o.dte}</td><td>${fmt(o.strike)}</td><td>${fmt(o.last)}</td><td>${fmt(o.bid)}</td><td>${fmt(o.ask)}</td><td>${o.spread_pct == null ? "—" : fmt(o.spread_pct, 1)}</td><td>${o.oi.toLocaleString("pl-PL")}</td><td>${o.volume.toLocaleString("pl-PL")}</td><td>${fmt(o.intrinsic)}</td><td>${fmt(o.extrinsic)}</td><td>${fmt(o.ext_int, 1)}%</td><td>${fmt(o.ext_price, 1)}%</td><td>${o.delta == null ? "n/a" : fmt(o.delta, 3)}</td><td>${o.quote}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  $("#optres").innerHTML = head + tb + (sel ? planHtml(r, su, sel, res) : "");
+  document.querySelectorAll("#optres .optt tbody tr").forEach(tr => tr.onclick = () => { S.optSel[key] = res.rows[+tr.dataset.i].contract; showOptions(r, su, res); });
+  document.querySelectorAll("#optres [data-copy]").forEach(b => b.onclick = () => { navigator.clipboard?.writeText($("#ordtxt").textContent); b.textContent = "Skopiowano"; });
+}
+function planCalc(su, o, spot) {
+  const c = S.cfg, sign = su.dir === "long" ? 1 : -1, d = Math.abs(o.delta || c.delta);
+  const P = optMid(o);
+  const Pe = Math.max(0.05, P + d * sign * (su.entry - spot));            // szacowana premia w chwili triggera
+  const lossPer = Math.min(Pe, d * Math.abs(su.entry - su.sl)) * 100;     // strata na kontrakt przy SL
+  const n = lossPer > 0 ? Math.floor(c.risk / lossPer) : 0;
+  const prof = c.prof.split("/").map(Number);
+  const be = prof.includes(40) ? 40 : 50;
+  const tg = prof.map(x => ({ x, opt: Pe * (1 + x / 100), und: su.entry + sign * (x / 100) * Pe / d }));
+  const parts = [Math.ceil(n / 3), Math.ceil((n - Math.ceil(n / 3)) / 2)]; parts.push(Math.max(0, n - parts[0] - parts[1]));
+  const tgt = su.tp_plan;
+  const pivPct = tgt != null ? d * Math.abs(tgt - su.entry) / Pe * 100 : null;
+  return { d, P, Pe, lossPer, n, tg, be, parts, pivPct, cost: Pe * 100 * n };
+}
+function planHtml(r, su, o, res) {
+  const p = planCalc(su, o, res.spot), long = su.dir === "long", R = res.right;
+  const name = `${r.ticker} ${o.expiration} ${fmt(o.strike)} ${R === "C" ? "CALL" : "PUT"}`;
+  const cmp = long ? "≥" : "≤", cmpS = long ? "≤" : "≥";
+  const ord = [
+    `1) Wejście (zlecenie warunkowe): BUY ${p.n} × ${name} LMT ≈ ${fmt(p.Pe)} (MID w chwili triggera)`,
+    `   Warunek: cena ${r.ticker} ${cmp} ${fmt(su.entry)}  (przebicie ${long ? "high" : "low"} świecy sygnałowej ${su.signal_date})`,
+    `2) Stop-loss (warunkowy): SELL ${p.n} × ${name} MKT, gdy cena ${r.ticker} ${cmpS} ${fmt(su.sl)}`,
+    `3) Cele: ` + p.tg.map((t, i) => `SELL ${p.parts[i]} LMT ${fmt(t.opt)} (+${t.x}%, akcja ≈ ${fmt(t.und)})`).join(" · "),
+    `4) Po +${p.be}% na opcji przesuń SL na break-even (cena wejścia opcji ${fmt(p.Pe)}).`,
+    su.tp_plan != null ? `   Cel strukturalny (pivot/Saty): ${fmt(su.tp_plan)} ≈ +${fmt(p.pivPct, 0)}% na opcji.` : `   Brak pivota w kierunku setupu.`,
+  ].join("\n");
+  const warn = [];
+  if (p.n < 1) warn.push(`Ryzyko ${S.cfg.risk} $ nie wystarcza na 1 kontrakt (strata na kontrakt ≈ ${fmt(p.lossPer, 0)} $).`);
+  if (o.dte < 5) warn.push("Mniej niż 5 dni do wygaśnięcia.");
+  if (!o.green) warn.push("Kontrakt nie spełnia OI > 250 i Ext/Price < 30%.");
+  if (Math.abs(su.dist_entry_pct) > 3) warn.push(`Trigger jest ${fmt(su.dist_entry_pct)}% od ceny — premia przy wejściu może się istotnie różnić.`);
+  return `<div class="planbox" style="margin-top:12px">
+    <h4 style="margin-bottom:8px">Plan pozycji · ryzyko ${S.cfg.risk.toLocaleString("pl-PL")} $ · profil ${S.cfg.prof}%</h4>
+    <div class="g4 mono" style="margin-bottom:10px">
+      <div class="cell"><div class="k">Kontrakt</div><div class="v">${o.expiration.slice(5)} ${fmt(o.strike)}${R}</div></div>
+      <div class="cell"><div class="k">Premia przy triggerze</div><div class="v">${fmt(p.Pe)}</div></div>
+      <div class="cell"><div class="k">Strata / kontrakt przy SL</div><div class="v">${fmt(p.lossPer, 0)} $</div></div>
+      <div class="cell"><div class="k">Liczba kontraktów</div><div class="v">${p.n}</div></div>
+      ${p.tg.map(t => `<div class="cell"><div class="k">Cel +${t.x}%</div><div class="v">${fmt(t.opt)} <span style="color:var(--muted);font-weight:400">akcja ${fmt(t.und)}</span></div></div>`).join("")}
+      <div class="cell"><div class="k">Koszt pozycji</div><div class="v">${fmt(p.cost, 0)} $</div></div>
+    </div>
+    ${warn.map(w => `<div class="warn" style="margin-bottom:6px">${w}</div>`).join("")}
+    <div style="display:flex;align-items:center;gap:8px;margin:8px 0 6px"><span class="lbl">Zlecenia do IBKR</span><button class="btn" data-copy="1" style="margin-left:auto">Kopiuj</button></div>
+    <pre id="ordtxt">${ord}</pre>
+    <div class="note" style="margin-top:6px">Szacunek z delty (bez gammy i theta). Premia przy triggerze = MID ± delta × odległość ceny od triggera. Strata przy SL = min(premia, delta × |wejście − SL|).</div>
+  </div>`;
+}
+
+function satyBox(r, su) {
+  const s = r.saty || {}, k = r.kc || {};
+  const row = (tf, nm) => s[tf] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${nm}</span><span class="mono">${fmt(s[tf].pos, 2)} ATR <span style="color:var(--muted)">(ATR ${fmt(s[tf].atr)})</span></span></div>` : "";
+  const kr = (tf) => k[tf] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>KC ${tf}</span><span class="mono">${fmt(k[tf].pos, 2)} ATR · EMA20 ${k[tf].dist_pct > 0 ? "+" : ""}${fmt(k[tf].dist_pct)}%</span></div>` : "";
+  const lv = s.M ? ["-0.618", "-0.382", "-0.236", "0", "+0.236", "+0.382", "+0.618", "+1.0"].map(x => `<div><span>${x}</span>${fmt(s.M.levels[x])}</div>`).join("") : "";
+  return `<div class="box"><h4>Saty ATR i Keltner</h4>
+    <div class="g3" style="margin-bottom:${S.showLv ? 10 : 0}px"><div>${row("M", "Swing (M)")}${row("W", "Multiday (W)")}${row("D", "Day (D)")}</div><div>${kr("D")}${kr("W")}</div>
+    <div class="note">${su && su.plan ? planDots(su) : ""}<br>Pozycja = (cena − zamknięcie poprzedniego okresu) / ATR(14). KC = EMA20 ± 0,5 / 2 × ATR(10).</div></div>
+    ${S.showLv && lv ? `<div class="lbl" style="margin-bottom:6px">Poziomy Saty Swing (M)</div><div class="levels mono">${lv}</div>` : ""}</div>`;
+}
+
+/* ======================= render zakładek ======================= */
+function renderTab() {
+  updateCounts();
+  if (S.tab === "setups") return;
+  const el = $("#tab-other");
+  if (S.tab === "cfg") return renderCfg(el);
+  if (S.tab === "bt") return renderBt(el);
+  if (!S.data) { el.innerHTML = `<div class="empty"><h3>Brak skanu</h3>Kliknij Skanuj rynek.</div>`; return; }
+  if (S.tab === "weekly") return renderWeekly(el);
+  if (S.tab === "f2") return renderF2(el);
+  if (S.tab === "mfvg") return renderMfvg(el);
+}
+function weeklyRows() {
+  return (S.rows || []).filter(x => x.tf === "W" && gOk(x.r) && x.plan_score >= S.wf.min && (!S.wf.trend || x.plan.ema) && (S.wf.dir === "all" || x.dir === S.wf.dir))
+    .sort((a, b) => b.plan_score - a.plan_score || (b.rr_plan ?? 0) - (a.rr_plan ?? 0));
+}
+function f2Rows() {
+  return (S.rows || []).filter(x => x.tf === "D" && gOk(x.r) && x.r.ema.D && (
+    (x.pattern === "F2D" && x.r.ema.D.trend === "up") || (x.pattern === "F2U" && x.r.ema.D.trend === "down")) &&
+    (S.ff.dir === "all" || x.dir === S.ff.dir) && (S.ff.ema >= 99 || Math.abs(x.ema20_dist_pct ?? 99) <= S.ff.ema))
+    .sort((a, b) => b.plan_score - a.plan_score || Math.abs(a.ema20_dist_pct) - Math.abs(b.ema20_dist_pct));
+}
+function mfvgRows() {
+  const out = [];
+  for (const r of (S.data?.results || [])) {
+    if (!gOk(r) || !r.ema.M) continue;
+    for (const kind of ["bull", "bear"]) {
+      const z = r.fvg.M[kind], dir = kind === "bull" ? "long" : "short";
+      if (!z || !z.near || r.ema.M.trend !== (kind === "bull" ? "up" : "down")) continue;
+      if (S.mf.dir !== "all" && S.mf.dir !== dir) continue;
+      const pats = dir === "long" ? ["F2D", "2D-2U"] : ["F2U", "2U-2D"];
+      const wi = r.setups.findIndex(s => s.tf === "W" && s.dir === dir && pats.includes(s.pattern));
+      out.push({ r, dir, z, wi, w: wi >= 0 ? r.setups[wi] : null });
+    }
+  }
+  return out.sort((a, b) => (b.w ? 1 : 0) - (a.w ? 1 : 0) || a.z.dist_pct - b.z.dist_pct);
+}
+function updateCounts() {
+  if (!S.data) return;
+  $("#n-weekly").textContent = weeklyRows().length; $("#n-f2").textContent = f2Rows().length; $("#n-mfvg").textContent = mfvgRows().length;
+}
+const secCell = x => `<span style="font-size:12.5px;color:var(--muted)">${x.r.sector || "—"}</span>`;
+const dirFilter = (id, cur) => chipsHtml(id, [["all", "Long + Short"], ["long", "Long"], ["short", "Short"]], cur);
+
+function renderWeekly(el) {
+  const rows = weeklyRows();
+  const cols = [
+    { k: "t", l: "Spółka", f: tkCell, s: x => x.r.ticker }, { k: "sec", l: "Sektor", f: secCell, s: x => x.r.sector },
+    { k: "p", l: "Setup W", f: x => dirEl(x.pattern, x.dir), s: x => x.pattern }, { k: "st", l: "Status", f: stEl, s: x => x.status },
+    { k: "plan", l: "Plan", t: "FVG W/M · EMA W+M · FTFC W+M · Saty ATR M · Keltner 0,5 · R:R ≥ 2", f: planDots, s: x => x.plan_score * 100 + (x.rr_plan || 0) },
+    { k: "g", l: "Ocena", f: x => gradeEl(x.grade), s: x => GR[x.grade] },
+    { k: "fvg", l: "FVG", f: x => x.plan_fvg ? `<span class="badge b-gold">${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "w strefie" : fmt(x.plan_fvg.dist, 1) + "%"}</span>` : '<span class="no">—</span>', s: x => x.plan_fvg ? -x.plan_fvg.dist : -99 },
+    { k: "e20", l: "EMA20 W", r: 1, t: "Odległość ceny od EMA20 tygodniowej", f: x => fmt(x.ema20_dist_pct, 1) + "%", s: x => Math.abs(x.ema20_dist_pct ?? 99) },
+    { k: "sat", l: "ATR M", r: 1, t: "Pozycja wejścia względem Saty ATR Swing (w ATR)", f: x => fmt(x.saty_pos_entry, 2), s: x => x.saty_pos_entry ?? 9 },
+    ...lvCols(), optCol()];
+  const T = tbl("weekly", cols, rows, x => openDetail(x.r.ticker, x.idx));
+  el.innerHTML = `<div class="sec-h"><h3>Plan tygodniowy — setupy W w trendzie</h3>${dirFilter("wdir", S.wf.dir)}
+    ${chipsHtml("wtr", [[1, "Tylko w trendzie EMA W+M"], [0, "Bez filtra trendu"]], S.wf.trend)}
+    ${chipsHtml("wmin", [[3, "≥ 3/6"], [4, "≥ 4/6"], [5, "≥ 5/6"], [6, "6/6"]], S.wf.min)}
+    <button class="btn pri" id="wbatch" data-testid="button-batch-options">Sprawdź opcje dla top 10</button>
+    <div class="desc">Zadania 5.1–8.1: porównanie spółek po FVG W/M, EMA10/20 W/M, setupie Strat, pozycji w Saty ATR (M), Keltner 0,5 i R:R. Kolumna Opcja pokazuje najlepszy kontrakt (delta ${S.cfg.delta}, ${S.cfg.min_dte}–${S.cfg.max_dte} dni). Kliknij wiersz po pełny plan pozycji i treść zleceń.</div></div>` + T.html;
+  T.bind(); bindChips("wdir", v => S.wf.dir = v); bindChips("wmin", v => S.wf.min = +v); bindChips("wtr", v => S.wf.trend = +v);
+  $("#wbatch").onclick = () => batchOpt(rows.slice(0, 10), $("#wbatch"));
+}
+function renderF2(el) {
+  const rows = f2Rows();
+  const cols = [
+    { k: "t", l: "Spółka", f: tkCell, s: x => x.r.ticker }, { k: "sec", l: "Sektor", f: secCell, s: x => x.r.sector },
+    { k: "p", l: "Setup D", f: x => dirEl(x.pattern, x.dir), s: x => x.pattern }, { k: "st", l: "Status", f: stEl, s: x => x.status },
+    { k: "plan", l: "Plan", t: "FVG W/M · EMA D+W · FTFC D+W · Saty ATR M · Keltner 0,5 · R:R ≥ 2", f: planDots, s: x => x.plan_score * 100 + (x.rr_plan || 0) },
+    { k: "ema", l: "EMA D·W", f: x => `<span class="dots">${["D", "W"].map(k => `<span class="dot d-${x.r.ema[k] ? x.r.ema[k].trend : "flat"}">${k}</span>`).join("")}</span>`, s: x => x.r.ema.W && x.r.ema.W.trend === (x.dir === "long" ? "up" : "down") ? 1 : 0 },
+    { k: "e20", l: "Od EMA20 D", r: 1, f: x => (x.ema20_dist_pct > 0 ? "+" : "") + fmt(x.ema20_dist_pct, 1) + "%", s: x => Math.abs(x.ema20_dist_pct ?? 99) },
+    { k: "kc", l: "KC D", r: 1, t: "Pozycja ceny w kanale Keltnera (ATR od EMA20); pasmo 0,5 = ±0,5", f: x => fmt(x.kc_pos, 2), s: x => x.kc_pos ?? 9 },
+    { k: "satd", l: "ATR D", r: 1, t: "Saty ATR Day: pozycja ceny względem wczorajszego zamknięcia", f: x => fmt(x.r.saty?.D?.pos, 2), s: x => x.r.saty?.D?.pos ?? 9 },
+    ...lvCols(), optCol()];
+  const T = tbl("f2", cols, rows, x => openDetail(x.r.ticker, x.idx));
+  el.innerHTML = `<div class="sec-h"><h3>F2 dzienny — F2D w trendzie wzrostowym, F2U w spadkowym</h3>${dirFilter("fdir2", S.ff.dir)}
+    <span class="clabel">EMA20</span>${chipsHtml("fema", [[2, "≤ 2%"], [4, "≤ 4%"], [99, "Wszystkie"]], S.ff.ema)}
+    <div class="desc">Zadania 5.2–8.2: sprawdzaj w końcówce sesji (21:30–22:00). „W trakcie” = świeca F2 jeszcze się formuje; po zamknięciu przechodzi w „Oczekuje”. Trend = EMA10/20 D. Cel = pivot, a bez pivota najbliższy poziom Saty ATR. SL = negacja świecy F2.</div></div>` + T.html;
+  T.bind(); bindChips("fdir2", v => S.ff.dir = v); bindChips("fema", v => S.ff.ema = +v);
+}
+function scenario(x) {
+  const r = x.r, z = x.z, L = x.dir === "long";
+  const ew = r.ema.W ? (r.ema.W.trend === (L ? "up" : "down") ? "EMA W zgodna" : "EMA W przeciwna (korekta)") : "";
+  let t = `Trend M ${L ? "wzrostowy" : "spadkowy"}, ${z.state === "W FVG" ? "cena w" : "cena " + fmt(z.dist_pct, 1) + "% od"} ${L ? "byczym" : "niedźwiedzim"} FVG M ${fmt(z.bot)}–${fmt(z.top)}; ${ew}. `;
+  if (x.w) t += `Jest setup W ${x.w.pattern}: wejście ${L ? ">" : "<"} ${fmt(x.w.entry)}, SL ${fmt(x.w.sl)}, cel ${x.w.tp_plan != null ? fmt(x.w.tp_plan) : "—"}${x.w.rr_plan ? " (R:R " + fmt(x.w.rr_plan) + ")" : ""}.`;
+  else t += `Czekaj na W ${L ? "F2D lub 2D-2U" : "F2U lub 2U-2D"} w strefie; negacja = zamknięcie M ${L ? "pod" : "nad"} ${fmt(L ? z.bot : z.top)}.`;
+  return t;
+}
+function renderMfvg(el) {
+  const rows = mfvgRows();
+  const cols = [
+    { k: "t", l: "Spółka", f: tkCell, s: x => x.r.ticker }, { k: "sec", l: "Sektor", f: secCell, s: x => x.r.sector },
+    { k: "d", l: "Kierunek", f: x => `<span class="badge ${x.dir === "long" ? "b-long" : "b-short"}">${x.dir === "long" ? "▲ Long" : "▼ Short"}</span>`, s: x => x.dir },
+    { k: "z", l: "FVG M", r: 1, f: x => `${fmt(x.z.bot)} – ${fmt(x.z.top)}`, s: x => x.z.bot },
+    { k: "dist", l: "Odległość", r: 1, f: x => x.z.state === "W FVG" ? "w strefie" : fmt(x.z.dist_pct, 1) + "%", s: x => x.z.dist_pct },
+    { k: "ema", l: "EMA M·W", f: x => `<span class="dots">${["M", "W"].map(k => `<span class="dot d-${x.r.ema[k] ? x.r.ema[k].trend : "flat"}">${k}</span>`).join("")}</span>` },
+    { k: "sat", l: "ATR M", r: 1, f: x => fmt(x.r.saty?.M?.pos, 2), s: x => x.r.saty?.M?.pos ?? 9 },
+    { k: "w", l: "Setup W", f: x => x.w ? dirEl(x.w.pattern, x.dir) + " " + gradeEl(x.w.grade) : '<span class="no">czekaj</span>', s: x => x.w ? 1 : 0 },
+    { k: "sc", l: "Scenariusz", f: x => `<div class="scen">${scenario(x)}</div>` }];
+  const T = tbl("mfvg", cols, rows, x => openDetail(x.r.ticker, x.wi >= 0 ? x.wi : 0));
+  el.innerHTML = `<div class="sec-h"><h3>Korekty do FVG miesięcznego</h3>${dirFilter("mdir", S.mf.dir)}
+    <div class="desc">Zadania 1.2 i 2.2: spółki w trendzie M (EMA10/20), które korygują do niewypełnionego FVG M (w strefie lub ≤ 3%). Jeśli na W jest już F2D / 2D-2U (short: F2U / 2U-2D) — gotowe wejście, SL i cel.</div></div>` + T.html;
+  T.bind(); bindChips("mdir", v => S.mf.dir = v);
+}
+
+/* ---------- backtest ---------- */
+async function renderBt(el) {
+  el.innerHTML = `<div class="sec-h"><h3>Backtest FVG + Strat (zadania 1.1 i 2.1)</h3>
+    <input class="search" id="btt" placeholder="Tickery, np. AAPL, NVDA (puste = wszystkie)" value="${S.bf.tickers}" data-testid="input-bt-tickers">
+    <button class="btn" id="btw">Spółki z Planu (top 10)</button>
+    ${chipsHtml("bty", [[0, "10 lat"], [5, "5 lat"], [3, "3 lata"], [1, "Ten rok"]], S.bf.years)}
+    <button class="btn pri" id="btgo">Przelicz</button></div><div id="btout"><div class="skel" style="height:200px"></div></div>`;
+  $("#btgo").onclick = () => { S.bf.tickers = $("#btt").value; renderTab(); };
+  $("#btt").onkeydown = e => { if (e.key === "Enter") $("#btgo").click(); };
+  $("#btw").onclick = () => { S.bf.tickers = weeklyRows().slice(0, 10).map(x => x.r.ticker).join(", "); renderTab(); };
+  bindChips("bty", v => S.bf.years = +v);
+  let d;
+  try { d = await (await fetch(API + `/api/backtest?tickers=${encodeURIComponent(S.bf.tickers)}&years=${S.bf.years}`)).json(); }
+  catch (e) { $("#btout").innerHTML = `<div class="warn">Serwer niedostępny.</div>`; return; }
+  if (!d.ready) { $("#btout").innerHTML = `<div class="empty"><h3>Backtest jeszcze się liczy</h3>Powstaje automatycznie po skanie (${fmt((d.progress || 0) * 100, 0)}%). Odśwież zakładkę za minutę.</div>`; return; }
+  const P = v => v == null ? "—" : fmt(v, 1) + "%", N = (v, k = 2) => v == null ? "—" : fmt(v, k);
+  const dn = x => x === "long" ? "▲ Long" : "▼ Short";
+  const t11 = `<div class="tbx"><table><thead><tr><th>FVG</th><th>Kierunek</th><th class="r">Zdarzeń</th><th class="r">Cel</th><th class="r">Negacja</th><th class="r">Mediana MFE</th><th class="r">Śr. MFE $</th><th class="r">Mediana MFE R</th><th class="r">Mediana celu</th><th class="r">Dni do celu</th><th class="r" title="Średnio na jedną spółkę w roku">Na spółkę / rok</th></tr></thead><tbody>
+    ${d.t11.map(x => `<tr><td><b>${x.tf}</b></td><td>${dn(x.dir)}</td><td class="r mono">${x.n}</td><td class="r mono pos">${P(x.win_pct)}</td><td class="r mono neg">${P(x.neg_pct)}</td><td class="r mono">${P(x.mfe_pct_med)}</td><td class="r mono">${N(x.mfe_usd_avg)}</td><td class="r mono">${N(x.mfe_r_med)}</td><td class="r mono">${P(x.tgt_pct_med)}</td><td class="r mono">${N(x.days_med, 0)}</td><td class="r mono">${N(x.per_year / Math.max(1, d.n_tickers), 2)}</td></tr>`).join("")}</tbody></table></div>`;
+  const mtf = `<div class="tbx"><table><thead><tr><th>Zależność między interwałami</th><th>Kierunek</th><th class="r">Zdarzeń</th><th class="r">Cel</th><th class="r">Negacja</th><th class="r">Mediana MFE</th><th class="r">Mediana MFE R</th></tr></thead><tbody>
+    ${d.mtf.map(x => `<tr><td>${x.label}</td><td>${dn(x.dir)}</td><td class="r mono">${x.n}</td><td class="r mono pos">${P(x.win_pct)}</td><td class="r mono neg">${P(x.neg_pct)}</td><td class="r mono">${P(x.mfe_pct_med)}</td><td class="r mono">${N(x.mfe_r_med)}</td></tr>`).join("")}</tbody></table></div>`;
+  const r21 = (lbl, x) => `<tr><td>${lbl}</td><td class="r mono">${x.n}</td><td class="r mono pos">${P(x.rr1_pct)}</td><td class="r mono">${P(x.rr2_pct)}</td><td class="r mono ${x.exp1 > 0 ? "pos" : "neg"}">${N(x.exp1)}</td><td class="r mono ${x.exp2 > 0 ? "pos" : "neg"}">${N(x.exp2)}</td><td class="r mono">${P(x.piv_pct)}</td><td class="r mono">${N(x.piv_rr_med)}</td><td class="r mono">${N(x.max_r_med)}</td><td class="r mono">${N(x.days_r1_med, 0)}</td><td class="r mono">${P(x.risk_pct_med)}</td></tr>`;
+  const t21 = `<div class="tbx"><table><thead><tr><th>FVG → setup</th><th class="r">Transakcji</th><th class="r">1:1</th><th class="r">1:2</th><th class="r">EV przy 1R</th><th class="r">EV przy 2R</th><th class="r">Pivot</th><th class="r">R:R pivota</th><th class="r">Mediana max R</th><th class="r">Dni do 1R</th><th class="r">Ryzyko</th></tr></thead><tbody>
+    ${d.t21.map(x => r21(`<b>${x.tf} → ${x.ytf}</b> ${dn(x.dir)}`, x) + Object.entries(x.by_pattern).map(([p, v]) => r21(`<span style="padding-left:14px;color:var(--muted)">${p}</span>`, v)).join("") + (x.m_al ? r21(`<span style="padding-left:14px;color:var(--muted)">zgodne z trendem M</span>`, x.m_al) + r21(`<span style="padding-left:14px;color:var(--muted)">przeciw trendowi M</span>`, x.m_against) : "")).join("")}</tbody></table></div>`;
+  const yk = ["D", "W", "M", "W→D", "M→W"];
+  const yrs = `<div class="tbx"><table><thead><tr><th>Rok</th>${yk.map(k => `<th class="r">${k.includes("→") ? "Setup " + k : "FVG " + k}</th>`).join("")}</tr></thead><tbody>${d.by_year.map(y => `<tr><td>${y.y}</td>${yk.map(k => `<td class="r mono">${y[k]}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const tk = `<div class="tbx"><table><thead><tr><th>Spółka</th><th class="r">FVG W/M</th><th class="r">Cel</th><th class="r">Setupy 2.1</th><th class="r">1:1</th></tr></thead><tbody>${d.tickers.slice(0, 40).map(x => `<tr><td><b>${x.t}</b></td><td class="r mono">${x.n11}</td><td class="r mono">${P(x.win11)}</td><td class="r mono">${x.n21}</td><td class="r mono">${P(x.rr1)}</td></tr>`).join("")}</tbody></table></div>`;
+  const ok = v => v ? '<span class="pos">✓</span>' : '<span class="no">✗</span>';
+  const rec = `<div class="tbx"><table><thead><tr><th>Data</th><th>Spółka</th><th>FVG → setup</th><th>Setup</th><th class="r">Wejście</th><th class="r">SL</th><th class="r">1:1</th><th class="r">1:2</th><th class="r">Pivot</th><th class="r">Max R</th></tr></thead><tbody>${d.recent21.slice(0, 40).map(x => `<tr><td class="mono">${x.date}</td><td><b>${x.t}</b></td><td>${x.tf} → ${x.ytf}</td><td>${dirEl(x.pattern, x.dir)}</td><td class="r mono">${fmt(x.entry)}</td><td class="r mono">${fmt(x.sl)}</td><td class="r">${x.open && !x.rr1 ? '<span class="no">trwa</span>' : ok(x.rr1)}</td><td class="r">${x.open ? '<span class="no">trwa</span>' : ok(x.rr2)}</td><td class="r">${x.piv == null ? "—" : ok(x.piv_hit)}</td><td class="r mono">${fmt(x.max_r)}</td></tr>`).join("")}</tbody></table></div>`;
+  $("#btout").innerHTML = `<div class="note" style="margin-bottom:10px">Policzono ${d.generated_at} · ${d.n_tickers} spółek · historia do 10 lat (Yahoo, dane dzienne).</div>
+    <div class="sec-h"><h3>1.1 Wejście w trendzie przy powrocie do FVG</h3><div class="desc">Trend = EMA10 &gt; EMA20 (short: &lt;) na interwale FVG. Wejście = pierwszy dotyk krawędzi FVG. Cel = ekstremum ruchu sprzed korekty. Negacja = zamknięcie świecy interwału za dalszą krawędzią FVG. MFE = największy ruch na korzyść, zanim nastąpi negacja (ile dało się zebrać). R = odległość do dalszej krawędzi FVG.</div></div>${t11}
+    <div class="sec-h"><h3>Zależności M → W</h3><div class="desc">„W po zrealizowanym M” — FVG W w tym samym kierunku do 6 miesięcy po osiągnięciu celu z FVG M.</div></div>${mtf}
+    <div class="sec-h"><h3>2.1 Powrót do FVG + setup Strat</h3><div class="desc">Po dotyku FVG W szukamy na D świecy 2D lub F2D (short: 2U / F2U), która dotknęła strefy; dla FVG M — na W. Wejście = przebicie high (low) świecy sygnałowej, SL = jej low (high). Liczone na świecach dziennych; SL i cel tego samego dnia = strata. EV w R przy wyjściu na 1R lub 2R.</div></div>${t21}
+    <div class="sec-h"><h3>Liczba okazji w latach</h3></div>${yrs}
+    <div class="sec-h"><h3>Spółki</h3></div>${tk}
+    <div class="sec-h"><h3>Ostatnie transakcje 2.1</h3></div>${rec}`;
+}
+
+/* ---------- ustawienia ---------- */
+function renderCfg(el) {
+  const c = S.cfg;
+  const f = (k, l, step, h) => `<div class="field"><label>${l}</label><input class="num" type="number" step="${step}" data-k="${k}" value="${c[k]}">${h ? `<div class="hint">${h}</div>` : ""}</div>`;
+  el.innerHTML = `<div class="box" style="margin-bottom:14px"><h4>Pozycja i opcje</h4><div class="sets">
+    ${f("risk", "Ryzyko na transakcję ($)", 50, "wyznacza liczbę kontraktów")}
+    <div class="field"><label>Profil celów</label><div class="seg" id="cprof">${["20/50/100", "20/40/60"].map(v => `<button data-v="${v}" class="${c.prof === v ? "on" : ""}">${v}%</button>`).join("")}</div><div class="hint">SL na BE po +${c.prof.includes("40") ? 40 : 50}%</div></div>
+    ${f("delta", "Delta", 0.05, "np. 0,7")}${f("tol", "Tolerancja delty", 0.01, "± od delty")}
+    ${f("min_dte", "Min. dni do wygaśnięcia", 1)}${f("max_dte", "Maks. dni do wygaśnięcia", 1, "maks. miesięczne = 31")}
+    ${f("oi", "Min. open interest", 50)}${f("vol", "Min. wolumen dzienny", 1, "0 przed otwarciem sesji")}
+    ${f("range", "Zakres strike'ów ±%", 5, "mniej = szybciej w IBKR")}
+    <div class="field"><label>Strona</label><div class="seg" id="cotm"><button data-v="0" class="${!c.otm ? "on" : ""}">ITM</button><button data-v="1" class="${c.otm ? "on" : ""}">OTM</button></div></div>
+  </div></div>
+  <div class="box" style="margin-bottom:14px"><h4>Źródło opcji: IBKR (TWS)</h4>
+    <div class="help">Dane cenowe do skanu zawsze pochodzą z Yahoo (działa też poza sesją i na telefonie). Opcje możesz brać z IBKR — przeglądarka łączy się wtedy z małym programem na Twoim komputerze, który pyta TWS tak samo jak ibquery.py (tylko odczyt, nie składa zleceń). Gdy most nie odpowiada (np. na telefonie), aplikacja automatycznie użyje Yahoo.<br><br>
+    <b>1.</b> W TWS: Global Configuration → API → Settings → zaznacz <b>Enable ActiveX and Socket Clients</b>, port <b>7497</b>, Trusted IP <b>127.0.0.1</b>.<br>
+    <b>2.</b> Pobierz oba pliki do jednego folderu: <a class="tv" href="${API}/download/ibkr_bridge.py" data-testid="link-bridge-py">ibkr_bridge.py</a> <a class="tv" href="${API}/download/start_ibkr_bridge.bat" data-testid="link-bridge-bat">start_ibkr_bridge.bat</a><br>
+    <b>3.</b> Uruchom <b>start_ibkr_bridge.bat</b> (za pierwszym razem zainstaluje ib_insync) i zostaw okno otwarte.<br>
+    <b>4.</b> W panelu u góry wybierz <b>Źródło opcji: IBKR (TWS)</b>.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:12px">
+      <div class="field" style="min-width:260px"><label>Adres mostu</label><input class="search" style="max-width:none" id="cbridge" value="${c.bridge}"></div>
+      <button class="btn" id="ctest" data-testid="button-test-bridge">Sprawdź połączenie</button><span id="ctestres" class="note"></span></div></div>`;
+  el.querySelectorAll("input[data-k]").forEach(i => i.onchange = () => { const v = parseFloat(i.value); if (!isNaN(v)) { c[i.dataset.k] = v; saveCfg(); S.optCache = {}; } });
+  document.querySelectorAll("#cprof button").forEach(b => b.onclick = () => { c.prof = b.dataset.v; saveCfg(); renderTab(); });
+  document.querySelectorAll("#cotm button").forEach(b => b.onclick = () => { c.otm = b.dataset.v === "1"; saveCfg(); S.optCache = {}; renderTab(); });
+  $("#cbridge").onchange = e => { c.bridge = e.target.value.trim(); saveCfg(); };
+  $("#ctest").onclick = async () => {
+    $("#ctestres").textContent = "Łączę…";
+    try { const j = await (await fetch(c.bridge.replace(/\/$/, "") + "/health")).json(); $("#ctestres").innerHTML = j.tws ? `<span class="pos">Most działa, TWS połączony (port ${j.port}).</span>` : `<span class="neg">Most działa, ale brak TWS: ${j.error}</span>`; }
+    catch (e) { $("#ctestres").innerHTML = `<span class="neg">Brak odpowiedzi mostu pod ${c.bridge}. Uruchom start_ibkr_bridge.bat.</span>`; }
+  };
+}
+
+/* ---------- status / auto ---------- */
+async function statusTick(first) {
+  try {
+    const s = await (await fetch(API + "/api/status")).json();
+    $("#auto").checked = !!s.auto_refresh;
+    if (s.running && !$("#scan").disabled) { $("#scan").disabled = true; $("#scanlbl").textContent = s.auto ? "Odświeżanie…" : "Skanowanie…"; $("#prog").classList.add("on"); poll(); }
+    else if (!s.running && s.generated_at && s.generated_at !== S.gen && !first) load();
+  } catch (e) {}
+}
+setInterval(statusTick, 60000);
+setTimeout(() => statusTick(true), 800);
 
 /* init: skeleton + load */
 $("#tbody").innerHTML = Array.from({ length: 8 }, () => `<tr>${COLS.map(() => `<td><div class="skel"></div></td>`).join("")}</tr>`).join("");

@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 last_scan.json
+data_cache.pkl*
+last_backtest.pkl

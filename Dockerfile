@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 RUN useradd -m -u 1000 user
 USER user
-ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH PORT=7860
+ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH PORT=7860 MALLOC_ARENA_MAX=2 PYTHONUNBUFFERED=1
 WORKDIR /home/user/app
 COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt

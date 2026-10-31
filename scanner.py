@@ -314,6 +314,63 @@ def ema(s: pd.Series, n: int) -> pd.Series:
     return s.ewm(span=n, adjust=False).mean()
 
 
+def atr_series(b: pd.DataFrame, n: int) -> pd.Series:
+    """ATR (RMA/Wilder) jak ta.atr w TradingView."""
+    pc = b["Close"].shift(1)
+    tr = pd.concat([b["High"] - b["Low"], (b["High"] - pc).abs(), (b["Low"] - pc).abs()], axis=1).max(axis=1)
+    return tr.ewm(alpha=1 / n, adjust=False).mean()
+
+
+SATY_FIBS = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.236, 1.618]
+
+
+def saty_levels(b: pd.DataFrame, complete: bool, price: float, n: int = 14) -> dict | None:
+    """Saty ATR Levels: zamknięcie poprzedniego okresu ± frakcje ATR(14) tego okresu.
+    Tryb Swing = interwał M, Multiday = W, Day = D."""
+    k = len(b) - 1 if complete else len(b) - 2
+    if k < n + 1:
+        return None
+    atr = float(atr_series(b, n).iloc[k])
+    pc = float(b["Close"].iloc[k])
+    if not atr > 0:
+        return None
+    lv = {"0": round(pc, 2)}
+    for f in SATY_FIBS:
+        lv[f"+{f}"] = round(pc + f * atr, 2)
+        lv[f"-{f}"] = round(pc - f * atr, 2)
+    return {"pc": round(pc, 2), "atr": round(atr, 2), "pos": round((price - pc) / atr, 3), "levels": lv}
+
+
+def keltner(b: pd.DataFrame, price: float, length: int = 20, atr_len: int = 10) -> dict | None:
+    """Kanał Keltnera jak w TradingView: EMA20(close) ± mnożnik × ATR(10). Pasma 0.5 i 2."""
+    if len(b) < length + 2:
+        return None
+    mid = float(ema(b["Close"], length).iloc[-1])
+    atr = float(atr_series(b, atr_len).iloc[-1])
+    if not atr > 0:
+        return None
+    return {"mid": round(mid, 2), "atr": round(atr, 2),
+            "u05": round(mid + 0.5 * atr, 2), "l05": round(mid - 0.5 * atr, 2),
+            "u2": round(mid + 2 * atr, 2), "l2": round(mid - 2 * atr, 2),
+            "pos": round((price - mid) / atr, 2), "dist_pct": round((price - mid) / mid * 100, 2)}
+
+
+def saty_target(sat: dict | None, entry: float, direction: str):
+    """Pierwszy poziom Saty za wejściem w kierunku setupu."""
+    if not sat:
+        return None, None
+    sign = 1 if direction == "long" else -1
+    best = None
+    for f in [-1.0, -0.786, -0.618, -0.5, -0.382, -0.236, 0.0] + SATY_FIBS:
+        v = sat["pc"] + f * sat["atr"]
+        if sign * (v - entry) > entry * 0.001:
+            if best is None or sign * (v - best[0]) < 0:
+                best = (v, f)
+    if best is None:
+        return None, None
+    return round(best[0], 2), (f"+{best[1]}" if best[1] >= 0 else str(best[1]))
+
+
 def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dict) -> dict | None:
     price = float(d["Close"].iloc[-1])
     bars = {tf: resample(d, tf) for tf in ("D", "W", "M", "Q")}
@@ -349,6 +406,11 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
         emas[tf] = {"e10": round(e10, 2), "e20": round(e20, 2),
                     "trend": "up" if e10 > e20 else "down",
                     "above": bool(price > e10 and price > e20), "below": bool(price < e10 and price < e20)}
+
+    # Saty ATR (D=Day, W=Multiday, M=Swing) i Keltner 0.5 / 2 (D, W)
+    comp = {tf: period_complete(bars[tf].index[-1], tf, now_ny) for tf in ("D", "W", "M")}
+    saty = {tf: saty_levels(bars[tf], comp[tf], price) for tf in ("D", "W", "M")}
+    kc = {tf: keltner(bars[tf], price) for tf in ("D", "W")}
 
     # FVG W i M
     fvg = {"W": fvg_context(bars["W"], price, cfg["near_w"]),
@@ -390,6 +452,43 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
                 "fvg_zone": [fz["bot"], fz["top"]] if fvg_ok else None,
                 "score": score, "grade": grade, "n_ok": n_ok,
             })
+            # --- klasyfikacja planu (zadania 5.1-8.2): FVG W/M, EMA, FTFC, Saty M, Keltner 0.5, zasięg R:R
+            sat = saty["M"]
+            fvg_any = None
+            for ftf in ("W", "M"):
+                z = fvg[ftf][kind]
+                if z and z["near"] and (fvg_any is None or z["dist_pct"] < fvg_any[1]["dist_pct"]):
+                    fvg_any = (ftf, z)
+            ema_plan_tfs = ("W", "M") if stf == "W" else ("D", "W")
+            ema_plan = all(emas.get(k) and emas[k]["trend"] == want for k in ema_plan_tfs)
+            epos = sign * (s["entry"] - sat["pc"]) / sat["atr"] if sat else None
+            saty_ok = bool(epos is not None and epos < 0.618)
+            st_v, st_lbl = saty_target(sat, s["entry"], direction)
+            kcb = kc[stf]
+            sig = b.loc[pd.Timestamp(s["signal_date"])]
+            if isinstance(sig, pd.DataFrame):
+                sig = sig.iloc[-1]
+            if kcb:
+                kc_ok = bool(float(sig["Low"]) <= kcb["u05"]) if direction == "long" else bool(float(sig["High"]) >= kcb["l05"])
+            else:
+                kc_ok = False
+            risk = abs(s["entry"] - s["sl"])
+            tgt = s["tp"] if s["tp"] is not None else st_v
+            rr_plan = round(abs(tgt - s["entry"]) / risk, 2) if (tgt is not None and risk > 0) else None
+            rr_ok = bool(rr_plan is not None and rr_plan >= 2)
+            plan = {"fvg": fvg_any is not None, "ema": bool(ema_plan), "ftfc": ftfc_ok,
+                    "saty": saty_ok, "kc": kc_ok, "rr": rr_ok}
+            s.update({
+                "plan": plan, "plan_score": int(sum(plan.values())),
+                "plan_fvg": ({"tf": fvg_any[0], "state": fvg_any[1]["state"], "dist": fvg_any[1]["dist_pct"],
+                              "zone": [fvg_any[1]["bot"], fvg_any[1]["top"]]} if fvg_any else None),
+                "plan_ema_tfs": list(ema_plan_tfs),
+                "saty_pos_entry": round(epos, 3) if epos is not None else None,
+                "saty_tp": st_v, "saty_tp_lvl": st_lbl,
+                "rr_saty": round(abs(st_v - s["entry"]) / risk, 2) if (st_v is not None and risk > 0) else None,
+                "tp_plan": tgt, "rr_plan": rr_plan,
+                "kc_pos": kcb["pos"] if kcb else None, "ema20_dist_pct": kcb["dist_pct"] if kcb else None,
+            })
             setups.append(s)
 
     # historia do mini-wykresu (60 świec dziennych / tygodniowych)
@@ -421,6 +520,7 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
         "ticker": ticker, "name": meta["name"], "sector": meta["sector"], "indices": meta["indices"],
         "price": round(price, 2), "chg": round(chg, 2), "last_date": str(d.index[-1].date()),
         "ftfc": ftfc, "ftfc_state": ftfc_state, "ema": emas, "fvg": fvg, "setups": setups,
+        "saty": saty, "kc": kc,
         "candles": last_types,
         "chart": {"D": pack(bars["D"], 120), "W": pack(bars["W"], 104), "M": pack(bars["M"], 60)},
         "fvg_list": {"W": fvg_list(bars["W"]), "M": fvg_list(bars["M"])},
@@ -430,7 +530,8 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
 DEFAULT_CFG = {"near_w": 3.0, "near_m": 3.0, "setup_tfs": ["D", "W"], "ema_tf": "setup"}
 
 
-def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=None, limit: int | None = None) -> dict:
+def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=None, limit: int | None = None,
+             data: dict | None = None, compact: bool = False) -> dict:
     cfg = {**DEFAULT_CFG, **(cfg or {})}
     uni = get_universe()
     tickers = [t for t, m in uni.items()
@@ -440,7 +541,8 @@ def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=
     if limit:
         tickers = tickers[:limit]
     t0 = time.time()
-    data = download_daily(tickers, progress_cb=(lambda p: progress_cb(0.85 * p, "Pobieranie danych")) if progress_cb else None)
+    if data is None:
+        data = download_daily(tickers, progress_cb=(lambda p: progress_cb(0.85 * p, "Pobieranie danych")) if progress_cb else None)
     now_ny = datetime.now(NY)
     results, errors = [], []
     for k, t in enumerate(tickers):
@@ -450,11 +552,14 @@ def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=
         try:
             r = analyze(t, data[t], uni[t], now_ny, cfg)
             if r:
+                if compact:
+                    # wykres i lista FVG jako gotowy JSON — dużo mniej pamięci na serwerze
+                    r["_detail"] = json.dumps({"chart": r.pop("chart"), "fvg_list": r.pop("fvg_list")})
                 results.append(r)
         except Exception as e:  # noqa
             errors.append(t)
         if progress_cb and k % 25 == 0:
-            progress_cb(0.85 + 0.15 * (k + 1) / len(tickers), "Analiza")
+            progress_cb(0.5 + 0.5 * (k + 1) / len(tickers), "Analiza setupów")
     return {"generated_at": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M"),
             "data_date": max((r["last_date"] for r in results), default=None),
             "universe": universe_filter, "count": len(results), "errors": errors,
