@@ -78,7 +78,7 @@ def worker(req: ScanReq, auto=False):
         tickers = sorted(uni)
         first = not data_store.STORE["data"] and not os.path.exists(data_store.PATH)
         cb(0.0, "Pobieranie pełnej historii (pierwszy raz ~5 min)" if first else "Aktualizacja notowań")
-        data = data_store.get_data(tickers, progress_cb=lambda p: cb(0.7 * p, "Pobieranie danych"))
+        data = data_store.get_data(tickers + scanner.CONTEXT_TICKERS, progress_cb=lambda p: cb(0.7 * p, "Pobieranie danych"))
         r = scanner.run_scan("all", {"ema_tf": req.ema_tf}, data=data, compact=True,
                              progress_cb=lambda p, s: cb(0.7 + 0.3 * max(0.0, (p - 0.5) * 2), s))
         r["auto"] = auto
@@ -92,7 +92,8 @@ def worker(req: ScanReq, auto=False):
         del data
         gc.collect()
         if not bt or bt.get("v") != backtest.VERSION or not str(bt.get("generated_at", "")).startswith(today):
-            data = data_store.STORE["data"]
+            ctxs = set(scanner.CONTEXT_TICKERS)
+            data = {k: v for k, v in data_store.STORE["data"].items() if k not in ctxs}
             threading.Thread(target=_run_backtest, args=(data,), daemon=True).start()
     except Exception as e:
         state["error"] = str(e)

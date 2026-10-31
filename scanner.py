@@ -44,6 +44,16 @@ def _fetch_wiki_lists() -> dict:
     }
 
 
+SECTOR_ALIAS = {"Technology": "Information Technology", "Telecommunications": "Communication Services",
+                "Basic Materials": "Materials"}
+SECTOR_ETF = {"Information Technology": "XLK", "Financials": "XLF", "Health Care": "XLV",
+              "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Energy": "XLE",
+              "Industrials": "XLI", "Materials": "XLB", "Utilities": "XLU", "Real Estate": "XLRE",
+              "Communication Services": "XLC"}
+MARKET_ETF = {"SPY": "S&P 500", "QQQ": "Nasdaq 100"}
+CONTEXT_TICKERS = list(MARKET_ETF) + list(SECTOR_ETF.values())
+
+
 def get_universe(refresh: bool = False) -> dict:
     """Zwraca {ticker: {name, sector, indices:[...]}}. Najpierw próbuje Wikipedii, potem cache."""
     path = os.path.join(HERE, "tickers.json")
@@ -58,9 +68,9 @@ def get_universe(refresh: bool = False) -> dict:
     if lists is None:
         lists = json.load(open(path))
     uni: dict = {}
-    for key, label in (("ndx", "NDX"), ("sp500", "SPX")):
+    for key, label in (("sp500", "SPX"), ("ndx", "NDX")):
         for r in lists[key]:
-            d = uni.setdefault(r["t"], {"name": r["n"], "sector": r["s"], "indices": []})
+            d = uni.setdefault(r["t"], {"name": r["n"], "sector": SECTOR_ALIAS.get(r["s"], r["s"]), "indices": []})
             d["indices"].append(label)
     return uni
 
@@ -321,14 +331,17 @@ def atr_series(b: pd.DataFrame, n: int) -> pd.Series:
     return tr.ewm(alpha=1 / n, adjust=False).mean()
 
 
-SATY_FIBS = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.236, 1.618]
+SATY_FIBS = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.236, 1.382, 1.5, 1.618, 1.786, 2.0,
+             2.236, 2.382, 2.5, 2.618, 2.786, 3.0]
+SATY_MODES = {"D": "Day", "W": "Multiday", "M": "Swing", "Q": "Position"}
 
 
-def saty_levels(b: pd.DataFrame, complete: bool, price: float, n: int = 14) -> dict | None:
-    """Saty ATR Levels: zamknięcie poprzedniego okresu ± frakcje ATR(14) tego okresu.
-    Tryb Swing = interwał M, Multiday = W, Day = D.
-    Jak w TradingView: poziomy dla ostatniej świecy liczone od zamknięcia i ATR świecy poprzedniej
-    (także w weekend / po sesji — bez przeskoku na zero po zamknięciu okresu)."""
+def saty_levels(b: pd.DataFrame, complete: bool, price: float, n: int = 14, trigger: float = 0.236) -> dict | None:
+    """Saty ATR Levels (satymahajan, v5) 1:1:
+    previous_close = close[1], atr = ta.atr(14)[1] na interwale trybu (Day=D, Multiday=W, Swing=M, Position=3M),
+    poziomy = previous_close ± fib × ATR (trigger 0.236, 0.382, 0.5, 0.618, 0.786, 1, rozszerzenia do 3),
+    range = (high − low bieżącego okresu) / ATR × 100. Calls > upper trigger, Puts < lower trigger.
+    Uwaga: TradingView bierze sesję rozszerzoną, tu są dane sesji regularnej (Yahoo) — możliwe drobne różnice."""
     k = len(b) - 2
     if k < n + 1:
         return None
@@ -340,21 +353,59 @@ def saty_levels(b: pd.DataFrame, complete: bool, price: float, n: int = 14) -> d
     for f in SATY_FIBS:
         lv[f"+{f}"] = round(pc + f * atr, 2)
         lv[f"-{f}"] = round(pc - f * atr, 2)
-    return {"pc": round(pc, 2), "atr": round(atr, 2), "pos": round((price - pc) / atr, 3), "levels": lv}
+    cur = b.iloc[-1]
+    rng = float(cur["High"] - cur["Low"]) / atr * 100
+    pos = (price - pc) / atr
+    return {"pc": round(pc, 2), "atr": round(atr, 2), "pos": round(pos, 3), "levels": lv,
+            "calls": round(pc + trigger * atr, 2), "puts": round(pc - trigger * atr, 2),
+            "up1": round(pc + atr, 2), "dn1": round(pc - atr, 2),
+            "range_pct": round(rng, 1), "range_state": "low" if rng <= 70 else ("high" if rng >= 90 else "mid"),
+            "zone": ("powyżej +1 ATR" if pos >= 1 else "Calls (> trigger)" if pos >= trigger else
+                     "poniżej −1 ATR" if pos <= -1 else "Puts (< trigger)" if pos <= -trigger else "między triggerami")}
+
+
+def saty_trend(b: pd.DataFrame) -> str | None:
+    """Trend z tabeli Saty: EMA 8/21/34 na interwale wykresu (bullish: close ≥ 8 ≥ 21 ≥ 34)."""
+    if len(b) < 40:
+        return None
+    c = b["Close"]
+    p, f, pv, sl = float(c.iloc[-1]), float(ema(c, 8).iloc[-1]), float(ema(c, 21).iloc[-1]), float(ema(c, 34).iloc[-1])
+    if p >= f >= pv >= sl:
+        return "bullish"
+    if p <= f <= pv <= sl:
+        return "bearish"
+    return "neutral"
+
+
+def kc_series(b: pd.DataFrame, length: int = 20, atr_len: int = 10):
+    return ema(b["Close"], length), atr_series(b, atr_len)
+
+
+def kc_zone(pos: float) -> str:
+    if pos >= 2:
+        return "nad KC 2 (wykupienie)"
+    if pos >= 0.5:
+        return "nad KC 0.5"
+    if pos > -0.5:
+        return "w kanale 0.5"
+    if pos > -2:
+        return "pod KC 0.5"
+    return "pod KC 2 (wyprzedanie)"
 
 
 def keltner(b: pd.DataFrame, price: float, length: int = 20, atr_len: int = 10) -> dict | None:
-    """Kanał Keltnera jak w TradingView: EMA20(close) ± mnożnik × ATR(10). Pasma 0.5 i 2."""
+    """Kanał Keltnera jak wbudowany w TradingView (KC 20, źródło close, EMA, ATR 10): pasma 0.5 i 2."""
     if len(b) < length + 2:
         return None
-    mid = float(ema(b["Close"], length).iloc[-1])
-    atr = float(atr_series(b, atr_len).iloc[-1])
+    m, a = kc_series(b, length, atr_len)
+    mid, atr = float(m.iloc[-1]), float(a.iloc[-1])
     if not atr > 0:
         return None
+    pos = (price - mid) / atr
     return {"mid": round(mid, 2), "atr": round(atr, 2),
             "u05": round(mid + 0.5 * atr, 2), "l05": round(mid - 0.5 * atr, 2),
             "u2": round(mid + 2 * atr, 2), "l2": round(mid - 2 * atr, 2),
-            "pos": round((price - mid) / atr, 2), "dist_pct": round((price - mid) / mid * 100, 2)}
+            "pos": round(pos, 2), "dist_pct": round((price - mid) / mid * 100, 2), "zone": kc_zone(pos)}
 
 
 def saty_target(sat: dict | None, entry: float, direction: str):
@@ -411,8 +462,10 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
 
     # Saty ATR (D=Day, W=Multiday, M=Swing) i Keltner 0.5 / 2 (D, W)
     comp = {tf: period_complete(bars[tf].index[-1], tf, now_ny) for tf in ("D", "W", "M")}
-    saty = {tf: saty_levels(bars[tf], comp[tf], price) for tf in ("D", "W", "M")}
-    kc = {tf: keltner(bars[tf], price) for tf in ("D", "W")}
+    saty = {tf: saty_levels(bars[tf], comp.get(tf, True), price) for tf in ("D", "W", "M", "Q")}
+    saty_tr = {tf: saty_trend(bars[tf]) for tf in ("D", "W")}
+    kc = {tf: keltner(bars[tf], price) for tf in ("D", "W", "M")}
+    kcs = {tf: kc_series(bars[tf]) for tf in ("D", "W")}
 
     # FVG W i M
     fvg = {"W": fvg_context(bars["W"], price, cfg["near_w"]),
@@ -470,8 +523,18 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
             sig = b.loc[pd.Timestamp(s["signal_date"])]
             if isinstance(sig, pd.DataFrame):
                 sig = sig.iloc[-1]
+            # Keltner 0.5 na świecy sygnałowej: long — low świecy dotknął kanału 0.5 (pullback do średniej),
+            # short — high dotknął kanału 0.5. Dodatkowo: cena nad/pod KC 2 = rozciągnięcie (ostrzeżenie).
+            kc_sig = None
             if kcb:
-                kc_ok = bool(float(sig["Low"]) <= kcb["u05"]) if direction == "long" else bool(float(sig["High"]) >= kcb["l05"])
+                km, ka = kcs[stf]
+                ts = pd.Timestamp(s["signal_date"])
+                mid_s, atr_s = float(km.loc[:ts].iloc[-1]), float(ka.loc[:ts].iloc[-1])
+                u05, l05 = mid_s + 0.5 * atr_s, mid_s - 0.5 * atr_s
+                kc_ok = bool(float(sig["Low"]) <= u05) if direction == "long" else bool(float(sig["High"]) >= l05)
+                kc_sig = {"mid": round(mid_s, 2), "u05": round(u05, 2), "l05": round(l05, 2),
+                          "u2": round(mid_s + 2 * atr_s, 2), "l2": round(mid_s - 2 * atr_s, 2),
+                          "pos": round((float(sig["Close"]) - mid_s) / atr_s, 2) if atr_s > 0 else None}
             else:
                 kc_ok = False
             risk = abs(s["entry"] - s["sl"])
@@ -490,6 +553,8 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
                 "rr_saty": round(abs(st_v - s["entry"]) / risk, 2) if (st_v is not None and risk > 0) else None,
                 "tp_plan": tgt, "rr_plan": rr_plan,
                 "kc_pos": kcb["pos"] if kcb else None, "ema20_dist_pct": kcb["dist_pct"] if kcb else None,
+                "kc_zone": kcb["zone"] if kcb else None, "kc_sig": kc_sig,
+                "kc_stretched": bool(kcb and (kcb["pos"] >= 2 if direction == "long" else kcb["pos"] <= -2)),
             })
             setups.append(s)
 
@@ -522,7 +587,7 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
         "ticker": ticker, "name": meta["name"], "sector": meta["sector"], "indices": meta["indices"],
         "price": round(price, 2), "chg": round(chg, 2), "last_date": str(d.index[-1].date()),
         "ftfc": ftfc, "ftfc_state": ftfc_state, "ema": emas, "fvg": fvg, "setups": setups,
-        "saty": saty, "kc": kc,
+        "saty": saty, "saty_trend": saty_tr, "kc": kc,
         "candles": last_types,
         "chart": {"D": pack(bars["D"], 120), "W": pack(bars["W"], 104), "M": pack(bars["M"], 60)},
         "fvg_list": {"W": fvg_list(bars["W"]), "M": fvg_list(bars["M"])},
@@ -530,6 +595,79 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
 
 
 DEFAULT_CFG = {"near_w": 3.0, "near_m": 3.0, "setup_tfs": ["D", "W"], "ema_tf": "setup"}
+
+
+TREND_TFS = {"D": ("D", "W"), "W": ("W", "M")}
+
+
+def etf_context(t: str, d: pd.DataFrame, now_ny: datetime) -> dict:
+    price = float(d["Close"].iloc[-1])
+    bars = {tf: resample(d, tf) for tf in ("D", "W", "M", "Q")}
+    ema_tr, ftfc = {}, {}
+    for tf in ("D", "W", "M"):
+        c = bars[tf]["Close"]
+        e10, e20 = float(ema(c, 10).iloc[-1]), float(ema(c, 20).iloc[-1])
+        ema_tr[tf] = {"trend": "up" if e10 > e20 else "down", "e10": round(e10, 2), "e20": round(e20, 2),
+                      "above": bool(price > e10 and price > e20), "below": bool(price < e10 and price < e20)}
+        op = float(bars[tf]["Open"].iloc[-1])
+        ftfc[tf] = "up" if price > op else ("down" if price < op else "flat")
+
+    def perf(days):
+        c = d["Close"]
+        return round((price / float(c.iloc[-days - 1]) - 1) * 100, 2) if len(c) > days else None
+
+    def state(tfs):
+        tr = {ema_tr[x]["trend"] for x in tfs}
+        return "up" if tr == {"up"} else ("down" if tr == {"down"} else "mixed")
+
+    return {"ticker": t, "price": round(price, 2), "chg": perf(1), "w1": perf(5), "m1": perf(21), "m3": perf(63),
+            "ema": ema_tr, "ftfc": ftfc, "trend_D": state(("D", "W")), "trend_W": state(("W", "M")),
+            "trend": state(("D", "W", "M")),
+            "saty": {tf: saty_levels(bars[tf], True, price) for tf in ("D", "W", "M")},
+            "saty_trend": {tf: saty_trend(bars[tf]) for tf in ("D", "W")},
+            "kc": {tf: keltner(bars[tf], price) for tf in ("D", "W")}}
+
+
+def market_context(data: dict, now_ny: datetime) -> dict:
+    out = {"market": [], "sectors": []}
+    for t, name in MARKET_ETF.items():
+        if t in data:
+            try:
+                out["market"].append({**etf_context(t, data[t], now_ny), "name": name})
+            except Exception:
+                pass
+    spy = next((m for m in out["market"] if m["ticker"] == "SPY"), None)
+    for sec, t in SECTOR_ETF.items():
+        if t in data:
+            try:
+                c = etf_context(t, data[t], now_ny)
+                c["name"] = sec
+                c["rs_m1"] = round(c["m1"] - spy["m1"], 2) if (spy and c["m1"] is not None) else None
+                c["rs_m3"] = round(c["m3"] - spy["m3"], 2) if (spy and c["m3"] is not None) else None
+                out["sectors"].append(c)
+            except Exception:
+                pass
+    out["sectors"].sort(key=lambda x: -(x["rs_m1"] if x["rs_m1"] is not None else -999))
+    for i, x in enumerate(out["sectors"]):
+        x["rank"] = i + 1
+    return out
+
+
+def attach_context(results: list, ctx: dict) -> None:
+    """Dla każdego setupu: czy trend rynku i sektora (EMA10/20 na interwałach setupu) jest zgodny z kierunkiem."""
+    etf = {x["ticker"]: x for x in ctx["market"] + ctx["sectors"]}
+    for r in results:
+        mkt_t = "SPY" if "SPX" in r["indices"] else "QQQ"
+        sec_t = SECTOR_ETF.get(r["sector"])
+        r["mkt_etf"], r["sec_etf"] = mkt_t, sec_t
+        m, sc = etf.get(mkt_t), etf.get(sec_t)
+        for su in r["setups"]:
+            want = "up" if su["dir"] == "long" else "down"
+            key = "trend_" + su["tf"]
+            su["mkt_trend"] = m[key] if m else None
+            su["sec_trend"] = sc[key] if sc else None
+            su["mkt_ok"] = bool(m and m[key] == want)
+            su["sec_ok"] = bool(sc and sc[key] == want)
 
 
 def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=None, limit: int | None = None,
@@ -544,14 +682,19 @@ def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=
         tickers = tickers[:limit]
     t0 = time.time()
     if data is None:
-        data = download_daily(tickers, progress_cb=(lambda p: progress_cb(0.85 * p, "Pobieranie danych")) if progress_cb else None)
+        data = download_daily(tickers + CONTEXT_TICKERS, progress_cb=(lambda p: progress_cb(0.85 * p, "Pobieranie danych")) if progress_cb else None)
     now_ny = datetime.now(NY)
-    results, errors = [], []
+    results, errors, frozen = [], [], []
     for k, t in enumerate(tickers):
         if t not in data:
             errors.append(t)
             continue
         try:
+            dd = data[t]
+            # cena "zamrożona" (np. spółka w trakcie przejęcia): ATR(14) D < 0,6% ceny — pomijamy
+            if len(dd) > 20 and float(atr_series(dd.iloc[-60:], 14).iloc[-1]) < 0.006 * float(dd["Close"].iloc[-1]):
+                frozen.append(t)
+                continue
             r = analyze(t, data[t], uni[t], now_ny, cfg)
             if r:
                 if compact:
@@ -562,7 +705,10 @@ def run_scan(universe_filter: str = "all", cfg: dict | None = None, progress_cb=
             errors.append(t)
         if progress_cb and k % 25 == 0:
             progress_cb(0.5 + 0.5 * (k + 1) / len(tickers), "Analiza setupów")
+    ctx = market_context(data, now_ny)
+    attach_context(results, ctx)
     return {"generated_at": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M"),
+            "context": ctx, "frozen": frozen,
             "data_date": max((r["last_date"] for r in results), default=None),
             "universe": universe_filter, "count": len(results), "errors": errors,
             "elapsed_s": round(time.time() - t0, 1), "cfg": cfg, "results": results}
@@ -579,6 +725,8 @@ def to_rows(scan: dict) -> pd.DataFrame:
                 "R:R": s["rr"], "Do wejścia %": s["dist_entry_pct"], "FTFC pełne": "tak" if s["ftfc_full"] else "nie", "Tryb FTFC": s["ftfc_mode"],
                 "D/W/M/Q": "/".join(r["ftfc"][k] for k in ("D", "W", "M", "Q")), "EMA OK": s["ema_ok"],
                 "FVG": ",".join(s["fvg_tfs"]) or "-",
+                "Rynek zgodny": "tak" if s.get("mkt_ok") else "nie", "Sektor zgodny": "tak" if s.get("sec_ok") else "nie",
+                "Sektor": r["sector"],
             })
     df = pd.DataFrame(rows)
     if not df.empty:

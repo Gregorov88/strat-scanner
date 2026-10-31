@@ -194,6 +194,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 .btn:disabled{opacity:.55;cursor:progress}
 .optmini{font-size:12px;white-space:nowrap}
 .optt{width:100%;font-size:12px;border-collapse:collapse}
+.tbx table.mini{min-width:0}table.mini{width:100%;font-size:12px}table.mini th{font-size:10px;padding:5px 5px;position:static;letter-spacing:.02em}table.mini td{padding:4px 5px;white-space:nowrap}table.mini .mono{font-size:11.5px}
 .optt thead th{position:sticky;top:0;z-index:1;background:var(--surface);cursor:default}
 .optt th{font-size:10.5px;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
 .optt td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -247,6 +248,8 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
           <button data-v="all" class="on">Wszystkie</button><button data-v="ndx">Nasdaq 100</button><button data-v="spx">S&amp;P 500</button>
         </div></div>
       <div class="field"><label>Sektor</label><select id="sector" data-testid="select-sector"><option value="">Wszystkie sektory</option></select></div>
+      <div class="field"><label>Trend rynku / sektora</label><select id="ctxf" data-testid="select-context">
+        <option value="">Bez filtra</option><option value="mkt">Rynek zgodny</option><option value="sec">Sektor zgodny</option><option value="both">Rynek i sektor zgodne</option></select></div>
       <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="yahoo">Cboe / Yahoo</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
       <div class="field"><label>Autoodświeżanie</label><label class="toggle" data-testid="toggle-auto"><input type="checkbox" id="auto"><span class="sw"></span>co 30 min w sesji</label></div>
       <div class="field"><label>Eksport</label><a class="tv" id="csv" href="#" data-testid="link-export">Pobierz CSV</a></div>
@@ -256,6 +259,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 
   <nav class="tabs" id="tabs">
     <button data-v="setups" class="on" data-testid="tab-setups">Setupy</button>
+    <button data-v="mkt" data-testid="tab-mkt">Rynek i sektory</button>
     <button data-v="weekly" data-testid="tab-weekly">Plan tygodniowy<small id="n-weekly"></small></button>
     <button data-v="f2" data-testid="tab-f2">F2 dzienny<small id="n-f2"></small></button>
     <button data-v="mfvg" data-testid="tab-mfvg">Korekty do FVG M<small id="n-mfvg"></small></button>
@@ -316,7 +320,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
 <script>
 const API = (() => { const p = "__PORT_8000__"; if (!p.startsWith("__")) return p; return location.port === "5500" ? "http://localhost:8000" : ""; })();
 const $ = s => document.querySelector(s);
-const S = { g: { uni: "all", sector: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
+const S = { g: { uni: "all", sector: "", ctx: "" }, data: null, sort: { k: "score", d: -1 }, f: { dir: "all", grade: "B", pat: new Set(["2D-2U", "2U-2U", "2U-1-2U", "F2D", "2U-2D", "2D-2D", "2D-1-2D", "F2U"]), rr: new Set(["lt1","1to2","gt2"]), flags: new Set(), q: "" }, showLv: false, stf: "D" };
 const RULE = { D: { fvg: "W", ftfc: ["D","W"], ema: ["D","W","M"], name: "dzienny" }, W: { fvg: "M", ftfc: ["W","M"], ema: ["W","M","Q"], name: "tygodniowy" } };
 const GR = { "A": 3, "B": 2, "C": 1 };
 const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -404,7 +408,7 @@ const LVK = new Set(["entry", "dist", "sl", "tp", "rr"]);
 const ALLCOLS = [
   ["ticker", "Spółka"], ["pattern", "Setup"], ["status", "Status"], ["grade", "Ocena"],
   ["price", "Cena", 1], ["entry", "Wejście", 1], ["dist", "Do wejścia", 1], ["sl", "SL", 1], ["tp", "TP", 1], ["rr", "R:R", 1],
-  ["ftfc", "FTFC"], ["ema", "EMA"], ["fvg", "FVG"]
+  ["ftfc", "FTFC"], ["ema", "EMA"], ["fvg", "FVG"], ["ctx", "Rynek · Sektor"]
 ];
 const cols = () => ALLCOLS.filter(c => S.showLv || !LVK.has(c[0])).map(c => {
   const r = RULE[S.stf];
@@ -417,7 +421,7 @@ let COLS = cols();
 function sortVal(x, k) {
   switch (k) {
     case "ticker": return x.r.ticker; case "price": return x.r.price; case "dist": return Math.abs(x.dist_entry_pct);
-    case "grade": return GR[x.grade] * 100 + x.score; case "ftfc": return +x.ftfc_full; case "ema": return Object.values(x.ema_flags).filter(v => v).length; case "fvg": return x.fvg_ok ? 10 - (x.fvg_dist || 0) : -1;
+    case "grade": return GR[x.grade] * 100 + x.score; case "ftfc": return +x.ftfc_full; case "ema": return Object.values(x.ema_flags).filter(v => v).length; case "fvg": return x.fvg_ok ? 10 - (x.fvg_dist || 0) : -1; case "ctx": return (x.mkt_ok ? 1 : 0) + (x.sec_ok ? 1 : 0);
     case "score": return x.score * 1000 + GR[x.grade] * 100 - Math.min(99, Math.abs(x.dist_entry_pct));
     default: return x[k] ?? -1e9;
   }
@@ -430,7 +434,7 @@ function filtered() {
     rrOk(x.rr, f.rr) &&
     (!f.flags.has("ema") || x.ema_ok) && (!f.flags.has("fvg") || x.fvg_ok) &&
     (!f.flags.has("pending") || !x.triggered) && (!f.flags.has("hidehit") || (!x.tp_hit && !x.sl_hit)) &&
-    (!f.q || x.r.ticker.includes(f.q) || x.r.name.toUpperCase().includes(f.q)) && gOk(x.r));
+    (!f.q || x.r.ticker.includes(f.q) || x.r.name.toUpperCase().includes(f.q)) && gOk(x.r) && ctxOk(x));
 }
 const gradeEl = g => `<span class="grade g-${{ A: "Ap", B: "A", C: "B" }[g]}">${g}</span>`;
 const dirEl = (p, d) => `<span class="badge ${d === "long" ? "b-long" : "b-short"}">${d === "long" ? "▲" : "▼"} ${p}</span>`;
@@ -480,6 +484,7 @@ function render() {
     <td>${ftfcEl(x)}</td>
     <td>${emaEl(x)}</td>
     <td>${x.fvg_tfs.length ? `<span class="badge b-gold">${x.fvg_state === "W FVG" ? "w FVG" : fmt(x.fvg_dist, 1) + "%"}</span>` : '<span class="no">—</span>'}</td>
+    <td>${ctxEl(x)}</td>
   </tr>`).join("") + (rows.length > 400 ? `<tr><td colspan="${COLS.length}" class="empty" style="padding:14px">Pokazano 400 z ${rows.length} — zawęź filtry</td></tr>` : "");
   document.querySelectorAll("#tbody tr[data-i]").forEach(tr => tr.onclick = () => { const x = view[+tr.dataset.i]; openDetail(x.r.ticker, x.idx); });
 
@@ -489,7 +494,7 @@ function render() {
     ${S.showLv ? `<div class="grid mono">
       <div><span>Wejście</span>${fmt(x.entry)}</div><div><span>SL</span>${fmt(x.sl)}</div><div><span>TP</span>${fmt(x.tp)}</div><div><span>R:R</span>${x.rr == null ? "—" : fmt(x.rr)}</div>
     </div>` : ""}
-    <div class="top" style="margin:8px 0 0">${stEl(x)}<span style="flex:1"></span>${ftfcEl(x)}<span style="font-size:11px;color:var(--muted)">EMA</span>${emaEl(x)}${x.fvg_tfs.length ? `<span class="badge b-gold">FVG ${x.fvg_tfs[0]} ${x.fvg_state === "W FVG" ? "✓" : fmt(x.fvg_dist, 1) + "%"}</span>` : ""}</div>
+    <div class="top" style="margin:8px 0 0">${stEl(x)}<span style="flex:1"></span>${ftfcEl(x)}<span style="font-size:11px;color:var(--muted)">EMA</span>${emaEl(x)}${x.fvg_tfs.length ? `<span class="badge b-gold">FVG ${x.fvg_tfs[0]} ${x.fvg_state === "W FVG" ? "✓" : fmt(x.fvg_dist, 1) + "%"}</span>` : ""}${ctxEl(x)}</div>
   </div>`).join("");
   document.querySelectorAll("#cards .card").forEach(c => c.onclick = () => { const x = view[+c.dataset.i]; openDetail(x.r.ticker, x.idx); });
 }
@@ -605,6 +610,26 @@ function setSrc(v) {
 document.querySelectorAll("#osrc button").forEach(b => b.onclick = () => { setSrc(b.dataset.v); renderTab(); });
 setSrc(S.cfg.src);
 $("#sector").onchange = e => { S.g.sector = e.target.value; render(); renderTab(); };
+$("#ctxf").onchange = e => { S.g.ctx = e.target.value; render(); renderTab(); };
+/* ---------- rynek i sektory ---------- */
+const ETF = () => { const c = S.data?.context || { market: [], sectors: [] }, m = {}; [...c.market, ...c.sectors].forEach(x => m[x.ticker] = x); return m; };
+const TRN = { up: "wzrostowy", down: "spadkowy", mixed: "mieszany" };
+function ctxAlign(r, dir, tf) {
+  const m = ETF(), want = dir === "long" ? "up" : "down", k = "trend_" + tf;
+  const mk = m[r.mkt_etf], sc = m[r.sec_etf];
+  return { mkt: mk ? mk[k] : null, sec: sc ? sc[k] : null, mkt_ok: !!(mk && mk[k] === want), sec_ok: !!(sc && sc[k] === want) };
+}
+function ctxOk(x, dir, tf) {
+  if (!S.g.ctx) return true;
+  const a = x.mkt_ok !== undefined && !dir ? x : ctxAlign(x.r || x, dir, tf);
+  return S.g.ctx === "mkt" ? a.mkt_ok : S.g.ctx === "sec" ? a.sec_ok : (a.mkt_ok && a.sec_ok);
+}
+const tdot = (st, l, t) => `<span class="dot d-${st === "up" ? "up" : st === "down" ? "down" : "flat"}" title="${t}">${l}</span>`;
+function ctxEl(x, dir, tf) {
+  const a = dir ? ctxAlign(x.r, dir, tf) : { mkt: x.mkt_trend, sec: x.sec_trend };
+  const r = x.r, T = tf || x.tf, rt = T === "W" ? "W+M" : "D+W";
+  return `<span class="dots">${tdot(a.mkt, "R", `Rynek ${r.mkt_etf}: trend ${TRN[a.mkt] || "—"} (EMA10/20 ${rt})`)}${tdot(a.sec, "S", `Sektor ${r.sec_etf || "—"} (${r.sector}): trend ${TRN[a.sec] || "—"} (EMA10/20 ${rt})`)}</span>`;
+}
 function gOk(r) {
   return (S.g.uni === "all" || r.indices.includes(S.g.uni === "ndx" ? "NDX" : "SPX")) && (!S.g.sector || r.sector === S.g.sector);
 }
@@ -762,15 +787,63 @@ function planHtml(r, su, o, res) {
   </div>`;
 }
 
+const SATY_TF = [["D", "Day"], ["W", "Multiday"], ["M", "Swing"], ["Q", "Position"]];
+const kcShort = z => ({ "nad KC 2 (wykupienie)": "nad KC 2", "nad KC 0.5": "nad 0,5", "w kanale 0.5": "w kanale 0,5", "pod KC 0.5": "pod 0,5", "pod KC 2 (wyprzedanie)": "pod KC 2" })[z] || z || "—";
+const zoneCol = z => /powyżej|Calls/.test(z || "") ? "var(--long)" : /poniżej|Puts/.test(z || "") ? "var(--short)" : "var(--muted)";
+const rngCol = st => st === "low" ? "var(--long)" : st === "high" ? "var(--short)" : "var(--gold)";
+const trCol = t => t === "bullish" ? "var(--long)" : t === "bearish" ? "var(--short)" : "var(--muted)";
+function satyTable(s) {
+  return `<div class="tbx"><table class="mini"><thead><tr><th>Tryb</th><th class="r">Close[1]</th><th class="r">ATR 14</th><th class="r">Puts &lt;</th><th class="r">Calls &gt;</th><th class="r">Range</th><th class="r">Pozycja</th></tr></thead><tbody>
+    ${SATY_TF.filter(([tf]) => s[tf]).map(([tf, nm]) => { const x = s[tf]; return `<tr><td>${nm} <span style="color:var(--muted)">(${tf === "Q" ? "3M" : tf})</span></td>
+      <td class="r mono">${fmt(x.pc)}</td><td class="r mono">${fmt(x.atr)}</td><td class="r mono" style="color:var(--short)">${fmt(x.puts)}</td><td class="r mono" style="color:var(--long)">${fmt(x.calls)}</td>
+      <td class="r mono" style="color:${rngCol(x.range_state)}">${x.range_pct == null ? "—" : fmt(x.range_pct, 0) + "%"}</td>
+      <td class="r mono" style="color:${zoneCol(x.zone)}" title="${x.zone || ""}">${fmt(x.pos, 2)}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function kcTable(k, su) {
+  return `<div class="tbx"><table class="mini"><thead><tr><th>Keltner 20</th><th class="r">−2</th><th class="r">−0,5</th><th class="r">EMA20</th><th class="r">+0,5</th><th class="r">+2</th><th class="r">Pozycja</th></tr></thead><tbody>
+    ${["D", "W", "M"].filter(tf => k[tf]).map(tf => { const x = k[tf]; return `<tr><td>${TFN[tf] || tf}</td><td class="r mono">${fmt(x.l2)}</td><td class="r mono">${fmt(x.l05)}</td><td class="r mono">${fmt(x.mid)}</td><td class="r mono">${fmt(x.u05)}</td><td class="r mono">${fmt(x.u2)}</td><td class="r mono" title="${x.zone}">${fmt(x.pos, 2)} <span style="color:var(--muted);font-family:inherit">${kcShort(x.zone)}</span></td></tr>`; }).join("")}
+    ${su && su.kc_sig ? `<tr><td>Sygnał ${su.tf} ${su.signal_date.slice(5)}</td><td class="r mono">${fmt(su.kc_sig.l2)}</td><td class="r mono">${fmt(su.kc_sig.l05)}</td><td class="r mono">${fmt(su.kc_sig.mid)}</td><td class="r mono">${fmt(su.kc_sig.u05)}</td><td class="r mono">${fmt(su.kc_sig.u2)}</td><td class="r mono" style="color:${su.plan && su.plan.kc ? "var(--long)" : "var(--short)"}">${su.plan && su.plan.kc ? "dotknęła 0,5 ✓" : "poza 0,5"}</td></tr>` : ""}
+    </tbody></table></div>`;
+}
 function satyBox(r, su) {
-  const s = r.saty || {}, k = r.kc || {};
-  const row = (tf, nm) => s[tf] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${nm}</span><span class="mono">${fmt(s[tf].pos, 2)} ATR <span style="color:var(--muted)">(ATR ${fmt(s[tf].atr)})</span></span></div>` : "";
-  const kr = (tf) => k[tf] ? `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>KC ${tf}</span><span class="mono">${fmt(k[tf].pos, 2)} ATR · EMA20 ${k[tf].dist_pct > 0 ? "+" : ""}${fmt(k[tf].dist_pct)}%</span></div>` : "";
-  const lv = s.M ? ["-0.618", "-0.382", "-0.236", "0", "+0.236", "+0.382", "+0.618", "+1.0"].map(x => `<div><span>${x}</span>${fmt(s.M.levels[x])}</div>`).join("") : "";
-  return `<div class="box"><h4>Saty ATR i Keltner</h4>
-    <div class="g3" style="margin-bottom:${S.showLv ? 10 : 0}px"><div>${row("M", "Swing (M)")}${row("W", "Multiday (W)")}${row("D", "Day (D)")}</div><div>${kr("D")}${kr("W")}</div>
-    <div class="note">${su && su.plan ? planDots(su) : ""}<br>Pozycja = (cena − zamknięcie poprzedniego okresu) / ATR(14). KC = EMA20 ± 0,5 / 2 × ATR(10).</div></div>
-    ${S.showLv && lv ? `<div class="lbl" style="margin-bottom:6px">Poziomy Saty Swing (M)</div><div class="levels mono">${lv}</div>` : ""}</div>`;
+  const s = r.saty || {}, k = r.kc || {}, tr = r.saty_trend || {};
+  const lv = s.M ? ["-1.618", "-1.0", "-0.786", "-0.618", "-0.5", "-0.382", "-0.236", "0", "+0.236", "+0.382", "+0.5", "+0.618", "+0.786", "+1.0", "+1.618"].map(x => `<div><span>${x}</span>${fmt(s.M.levels[x])}</div>`).join("") : "";
+  const a = su ? ctxAlign(r, su.dir, su.tf) : null, m = ETF();
+  const ctxLine = a ? `<div class="note" style="margin-bottom:8px">Rynek <b>${r.mkt_etf}</b>: <b style="color:${a.mkt === "up" ? "var(--long)" : a.mkt === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.mkt] || "—"}</b> · Sektor <b>${r.sec_etf || "—"}</b> (${r.sector}${m[r.sec_etf] ? `, ranking ${m[r.sec_etf].rank}/11` : ""}): <b style="color:${a.sec === "up" ? "var(--long)" : a.sec === "down" ? "var(--short)" : "var(--muted)"}">${TRN[a.sec] || "—"}</b> — EMA10/20 ${su.tf === "W" ? "W+M" : "D+W"}, setup ${su.dir === "long" ? "long" : "short"}: ${a.mkt_ok && a.sec_ok ? "rynek i sektor zgodne" : a.mkt_ok ? "zgodny tylko rynek" : a.sec_ok ? "zgodny tylko sektor" : "rynek i sektor przeciwne"}.</div>` : "";
+  return `<div class="box"><h4>Rynek, sektor, Saty ATR i Keltner</h4>${ctxLine}
+    <div class="lbl" style="margin-bottom:6px">Saty ATR Levels (ATR 14, trigger 0,236) · trend EMA 8/21/34: D <b style="color:${trCol(tr.D)}">${tr.D || "—"}</b>, W <b style="color:${trCol(tr.W)}">${tr.W || "—"}</b></div>
+    ${satyTable(s)}
+    <div class="lbl" style="margin:10px 0 6px">Kanały Keltnera (KC 20, close, ATR 10) — pasma 0,5 i 2</div>
+    ${kcTable(k, su)}
+    <div class="note" style="margin-top:8px">${su && su.plan ? planDots(su) + "<br>" : ""}Saty: poziomy od zamknięcia poprzedniego okresu ± ATR(14) tego okresu, jak w skrypcie Saty ATR Levels. Range = zakres bieżącego okresu jako % ATR (≤ 70% zielony, ≥ 90% czerwony). Pozycja = (cena − poprz. close) / ATR. TradingView liczy z sesji rozszerzonej, tu dane z sesji regularnej — możliwe różnice rzędu groszy.</div>
+    ${S.showLv && lv ? `<div class="lbl" style="margin:10px 0 6px">Poziomy Saty Swing (M)</div><div class="levels mono">${lv}</div>` : ""}</div>`;
+}
+function renderMkt(el) {
+  const c = S.data.context || { market: [], sectors: [] };
+  if (!c.sectors.length) { el.innerHTML = `<div class="empty"><h3>Brak danych rynku</h3>Uruchom skan — dane ETF pobiorą się przy następnym skanie.</div>`; return; }
+  const pct = v => v == null ? "—" : `<span style="color:${v >= 0 ? "var(--long)" : "var(--short)"}">${v > 0 ? "+" : ""}${fmt(v, 1)}%</span>`;
+  const st = t => `<span class="badge ${t === "up" ? "b-long" : t === "down" ? "b-short" : ""}">${t === "up" ? "▲ wzrostowy" : t === "down" ? "▼ spadkowy" : "↔ mieszany"}</span>`;
+  const emaD = x => `<span class="dots">${["D", "W", "M"].map(k => tdot(x.ema[k].trend, k, `EMA10/20 ${k}: ${x.ema[k].e10} / ${x.ema[k].e20}`)).join("")}</span>`;
+  const ftD = x => `<span class="dots">${["D", "W", "M"].map(k => tdot(x.ftfc[k], k, "FTFC " + k)).join("")}</span>`;
+  const cnt = {}; (S.rows || []).forEach(x => { if (!gOk(x.r)) return; const k = x.r.sec_etf; cnt[k] = cnt[k] || { l: 0, s: 0 }; cnt[k][x.dir === "long" ? "l" : "s"]++; });
+  const base = [
+    { k: "t", l: "ETF", f: x => `<div class="tkn"><span class="tk">${x.ticker}</span><span class="nm">${x.name}</span></div>`, s: x => x.ticker },
+    { k: "td", l: "Trend D (D+W)", f: x => st(x.trend_D), s: x => x.trend_D }, { k: "tw", l: "Trend W (W+M)", f: x => st(x.trend_W), s: x => x.trend_W },
+    { k: "ema", l: "EMA10/20 D·W·M", f: emaD }, { k: "ft", l: "FTFC D·W·M", f: ftD },
+    { k: "st8", l: "EMA 8/21/34 D·W", t: "Trend z tabeli Saty", f: x => `<span style="font-size:12px"><b style="color:${trCol(x.saty_trend.D)}">${x.saty_trend.D || "—"}</b> · <b style="color:${trCol(x.saty_trend.W)}">${x.saty_trend.W || "—"}</b></span>` },
+    { k: "w1", l: "1 tydz.", r: 1, f: x => pct(x.w1), s: x => x.w1 }, { k: "m1", l: "1 mies.", r: 1, f: x => pct(x.m1), s: x => x.m1 }, { k: "m3", l: "3 mies.", r: 1, f: x => pct(x.m3), s: x => x.m3 },
+    { k: "sat", l: "Saty Swing", r: 1, t: "Pozycja względem Saty ATR Swing (M) i range miesiąca", f: x => x.saty.M ? `<span style="color:${zoneCol(x.saty.M.zone)}">${fmt(x.saty.M.pos, 2)}</span> <span style="color:${rngCol(x.saty.M.range_state)};font-size:11.5px">${fmt(x.saty.M.range_pct, 0)}%</span>` : "—", s: x => x.saty.M?.pos ?? 0 },
+    { k: "kc", l: "KC D · W", f: x => `<span style="font-size:12px">${kcShort(x.kc.D?.zone)} · ${kcShort(x.kc.W?.zone)}</span>`, s: x => x.kc.D?.pos ?? 0 }];
+  const secCols = [{ k: "rk", l: "#", r: 1, f: x => x.rank, s: x => -x.rank }, ...base.slice(0, 1),
+    { k: "rs", l: "Siła vs SPY 1M", r: 1, t: "Stopa zwrotu 1M sektora minus SPY", f: x => pct(x.rs_m1), s: x => x.rs_m1 },
+    { k: "rs3", l: "vs SPY 3M", r: 1, f: x => pct(x.rs_m3), s: x => x.rs_m3 }, ...base.slice(1),
+    { k: "n", l: "Setupy L / S", r: 1, t: "Liczba setupów long / short w sektorze (wg filtrów rynku)", f: x => `${cnt[x.ticker]?.l || 0} / ${cnt[x.ticker]?.s || 0}`, s: x => (cnt[x.ticker]?.l || 0) + (cnt[x.ticker]?.s || 0) }];
+  const TM = tbl("mkt_m", base, c.market, null), TS = tbl("mkt_s", secCols, c.sectors, x => { S.g.sector = x.name; fillSectors(); $("#sector").value = x.name; document.querySelector('[data-testid=tab-setups]').click(); render(); });
+  const up = c.sectors.filter(x => x.trend_W === "up").length, dn = c.sectors.filter(x => x.trend_W === "down").length;
+  el.innerHTML = `<div class="sec-h"><h3>Trend rynku</h3><div class="desc">Trend = EMA10/20 na dwóch interwałach: dla setupów D liczy się D+W, dla setupów W — W+M (jak w ocenie). Spółki z S&amp;P 500 porównywane są do SPY, spółki tylko z Nasdaq 100 — do QQQ.</div></div>${TM.html}
+    <div class="sec-h" style="margin-top:18px"><h3>Sektory</h3><div class="desc">11 ETF-ów sektorowych SPDR, ranking wg siły względem SPY w ostatnim miesiącu. W trendzie W+M: ${up} wzrostowych, ${dn} spadkowych. Kliknij sektor, aby zobaczyć jego setupy (zadanie 8.2).</div></div>${TS.html}
+    ${(S.data.frozen || []).length ? `<div class="note" style="margin-top:10px">Pominięte (cena zamrożona, ATR D &lt; 0,6% — zwykle spółka w trakcie przejęcia): ${S.data.frozen.join(", ")}.</div>` : ""}`;
+  TM.bind(); TS.bind();
 }
 
 /* ======================= render zakładek ======================= */
@@ -781,18 +854,19 @@ function renderTab() {
   if (S.tab === "cfg") return renderCfg(el);
   if (S.tab === "bt") return renderBt(el);
   if (!S.data) { el.innerHTML = `<div class="empty"><h3>Brak skanu</h3>Kliknij Skanuj rynek.</div>`; return; }
+  if (S.tab === "mkt") return renderMkt(el);
   if (S.tab === "weekly") return renderWeekly(el);
   if (S.tab === "f2") return renderF2(el);
   if (S.tab === "mfvg") return renderMfvg(el);
 }
 function weeklyRows() {
-  return (S.rows || []).filter(x => x.tf === "W" && gOk(x.r) && x.plan_score >= S.wf.min && (!S.wf.trend || x.plan.ema) && (S.wf.dir === "all" || x.dir === S.wf.dir))
+  return (S.rows || []).filter(x => x.tf === "W" && gOk(x.r) && x.plan_score >= S.wf.min && (!S.wf.trend || x.plan.ema) && ctxOk(x) && (S.wf.dir === "all" || x.dir === S.wf.dir))
     .sort((a, b) => b.plan_score - a.plan_score || (b.rr_plan ?? 0) - (a.rr_plan ?? 0));
 }
 function f2Rows() {
   return (S.rows || []).filter(x => x.tf === "D" && gOk(x.r) && x.r.ema.D && (
     (x.pattern === "F2D" && x.r.ema.D.trend === "up") || (x.pattern === "F2U" && x.r.ema.D.trend === "down")) &&
-    (S.ff.dir === "all" || x.dir === S.ff.dir) && (S.ff.ema >= 99 || Math.abs(x.ema20_dist_pct ?? 99) <= S.ff.ema))
+    ctxOk(x) && (S.ff.dir === "all" || x.dir === S.ff.dir) && (S.ff.ema >= 99 || Math.abs(x.ema20_dist_pct ?? 99) <= S.ff.ema))
     .sort((a, b) => b.plan_score - a.plan_score || Math.abs(a.ema20_dist_pct) - Math.abs(b.ema20_dist_pct));
 }
 function mfvgRows() {
@@ -803,6 +877,7 @@ function mfvgRows() {
       const z = r.fvg.M[kind], dir = kind === "bull" ? "long" : "short";
       if (!z || !z.near || r.ema.M.trend !== (kind === "bull" ? "up" : "down")) continue;
       if (S.mf.dir !== "all" && S.mf.dir !== dir) continue;
+      if (!ctxOk({ r }, dir, "W")) continue;
       const pats = dir === "long" ? ["F2D", "2D-2U"] : ["F2U", "2U-2D"];
       const wi = r.setups.findIndex(s => s.tf === "W" && s.dir === dir && pats.includes(s.pattern));
       out.push({ r, dir, z, wi, w: wi >= 0 ? r.setups[wi] : null });
@@ -823,9 +898,10 @@ function renderWeekly(el) {
     { k: "t", l: "Spółka", f: tkCell, s: x => x.r.ticker }, { k: "sec", l: "Sektor", f: secCell, s: x => x.r.sector },
     { k: "p", l: "Setup W", f: x => dirEl(x.pattern, x.dir), s: x => x.pattern }, { k: "st", l: "Status", f: stEl, s: x => x.status },
     { k: "plan", l: "Plan", t: "FVG W/M · EMA W+M · FTFC W+M · Saty ATR M · Keltner 0,5 · R:R ≥ 2", f: planDots, s: x => x.plan_score * 100 + (x.rr_plan || 0) },
-    { k: "g", l: "Ocena", f: x => gradeEl(x.grade), s: x => GR[x.grade] },
+    { k: "g", l: "Ocena", f: x => gradeEl(x.grade), s: x => GR[x.grade] }, { k: "ctx", l: "Rynek · Sektor", t: "Trend rynku (SPY/QQQ) i ETF sektora — EMA10/20 na interwałach setupu", f: x => ctxEl(x), s: x => (x.mkt_ok ? 1 : 0) + (x.sec_ok ? 1 : 0) },
     { k: "fvg", l: "FVG", f: x => x.plan_fvg ? `<span class="badge b-gold">${x.plan_fvg.tf} ${x.plan_fvg.state === "W FVG" ? "w strefie" : fmt(x.plan_fvg.dist, 1) + "%"}</span>` : '<span class="no">—</span>', s: x => x.plan_fvg ? -x.plan_fvg.dist : -99 },
     { k: "e20", l: "EMA20 W", r: 1, t: "Odległość ceny od EMA20 tygodniowej", f: x => fmt(x.ema20_dist_pct, 1) + "%", s: x => Math.abs(x.ema20_dist_pct ?? 99) },
+    { k: "kcw", l: "KC W", t: "Kanał Keltnera tygodniowy: pozycja ceny i strefa", f: x => `<span class="mono">${fmt(x.kc_pos, 2)}</span> <span style="font-size:11.5px;color:${x.kc_stretched ? "var(--gold)" : "var(--muted)"}">${kcShort(x.kc_zone)}</span>`, s: x => x.kc_pos ?? 9 },
     { k: "sat", l: "ATR M", r: 1, t: "Pozycja wejścia względem Saty ATR Swing (w ATR)", f: x => fmt(x.saty_pos_entry, 2), s: x => x.saty_pos_entry ?? 9 },
     ...lvCols(), optCol()];
   const T = tbl("weekly", cols, rows, x => openDetail(x.r.ticker, x.idx));
@@ -844,8 +920,9 @@ function renderF2(el) {
     { k: "p", l: "Setup D", f: x => dirEl(x.pattern, x.dir), s: x => x.pattern }, { k: "st", l: "Status", f: stEl, s: x => x.status },
     { k: "plan", l: "Plan", t: "FVG W/M · EMA D+W · FTFC D+W · Saty ATR M · Keltner 0,5 · R:R ≥ 2", f: planDots, s: x => x.plan_score * 100 + (x.rr_plan || 0) },
     { k: "ema", l: "EMA D·W", f: x => `<span class="dots">${["D", "W"].map(k => `<span class="dot d-${x.r.ema[k] ? x.r.ema[k].trend : "flat"}">${k}</span>`).join("")}</span>`, s: x => x.r.ema.W && x.r.ema.W.trend === (x.dir === "long" ? "up" : "down") ? 1 : 0 },
+    { k: "ctx", l: "Rynek · Sektor", t: "Trend rynku (SPY/QQQ) i ETF sektora — EMA10/20 na interwałach setupu", f: x => ctxEl(x), s: x => (x.mkt_ok ? 1 : 0) + (x.sec_ok ? 1 : 0) },
     { k: "e20", l: "Od EMA20 D", r: 1, f: x => (x.ema20_dist_pct > 0 ? "+" : "") + fmt(x.ema20_dist_pct, 1) + "%", s: x => Math.abs(x.ema20_dist_pct ?? 99) },
-    { k: "kc", l: "KC D", r: 1, t: "Pozycja ceny w kanale Keltnera (ATR od EMA20); pasmo 0,5 = ±0,5", f: x => fmt(x.kc_pos, 2), s: x => x.kc_pos ?? 9 },
+    { k: "kc", l: "KC D", t: "Pozycja ceny w kanale Keltnera 20 (ATR10 od EMA20); kanał 0,5 = ±0,5", f: x => `<span class="mono">${fmt(x.kc_pos, 2)}</span> <span style="font-size:11.5px;color:${x.kc_stretched ? "var(--gold)" : "var(--muted)"}">${kcShort(x.kc_zone)}</span>`, s: x => x.kc_pos ?? 9 },
     { k: "satd", l: "ATR D", r: 1, t: "Saty ATR Day: pozycja ceny względem wczorajszego zamknięcia", f: x => fmt(x.r.saty?.D?.pos, 2), s: x => x.r.saty?.D?.pos ?? 9 },
     ...lvCols(), optCol()];
   const T = tbl("f2", cols, rows, x => openDetail(x.r.ticker, x.idx));
@@ -871,6 +948,7 @@ function renderMfvg(el) {
     { k: "dist", l: "Odległość", r: 1, f: x => x.z.state === "W FVG" ? "w strefie" : fmt(x.z.dist_pct, 1) + "%", s: x => x.z.dist_pct },
     { k: "ema", l: "EMA M·W", f: x => `<span class="dots">${["M", "W"].map(k => `<span class="dot d-${x.r.ema[k] ? x.r.ema[k].trend : "flat"}">${k}</span>`).join("")}</span>` },
     { k: "sat", l: "ATR M", r: 1, f: x => fmt(x.r.saty?.M?.pos, 2), s: x => x.r.saty?.M?.pos ?? 9 },
+    { k: "ctx", l: "Rynek · Sektor", t: "Trend rynku i sektora na W+M", f: x => ctxEl(x, x.dir, "W"), s: x => { const a = ctxAlign(x.r, x.dir, "W"); return a.mkt_ok + a.sec_ok; } },
     { k: "w", l: "Setup W", f: x => x.w ? dirEl(x.w.pattern, x.dir) + " " + gradeEl(x.w.grade) : '<span class="no">czekaj</span>', s: x => x.w ? 1 : 0 },
     { k: "sc", l: "Scenariusz", f: x => `<div class="scen">${scenario(x)}</div>` }];
   const T = tbl("mfvg", cols, rows, x => openDetail(x.r.ticker, x.wi >= 0 ? x.wi : 0));
