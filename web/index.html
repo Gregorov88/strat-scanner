@@ -83,13 +83,15 @@ a{color:var(--acc)}
     <div class="row"><span class="lbl">Setup</span><span id="f-pat"></span></div>
     <div class="row"><span class="lbl">Interwał</span><span id="f-tf"></span></div>
     <div class="row"><span class="lbl">Kierunek</span><span id="f-dir"></span></div>
+    <div class="row"><span class="lbl">Ocena</span><span id="f-gr"></span></div>
+    <div class="row"><span class="lbl">Warunki</span><span id="f-min"></span></div>
   </section>
 
   <p class="sum" id="sum"></p>
   <div id="out"></div>
 
   <div class="legend">
-    ✓ / ✗ — czy warunek jest spełniony dla kierunku setupu. <b>FVG</b> — cena w FVG wyższego interwału lub ≤ 3% od niego (D: W/M, W: W/M, M: M/Q).
+    ✓ / ✗ — czy warunek jest spełniony dla kierunku setupu. <b>FVG</b> — cena w FVG wyższego interwału lub blisko niego (D → Weekly, W → Monthly, M → kwartalny). Long: tylko FVG bullish, short: tylko FVG bearish.
     <b>EMA</b> — EMA10 nad EMA20 (long) lub pod (short): D na D+W+M, W na W+M+Q, M na M+Q.
     <b>FTFC</b> — cena triggera po właściwej stronie otwarcia świec (D: D+W, W: W+M, M: M+Q).
     <b>Keltner</b> — świeca sygnałowa dotknęła kanału 0,5 (KC 20, ATR 10). <b>ATR</b> — wejście &lt; 0,618 ATR Saty od poprzedniego zamknięcia (D/W: Swing, M: Position).
@@ -105,7 +107,7 @@ const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", 
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
 
 const PATS = [["2D-2U", "long"], ["F2D", "long"], ["2U-2D", "short"], ["F2U", "short"]];
-const F = Object.assign({ uni: ["SPX", "NDX", "CMD"], pat: ["2D-2U", "F2D", "2U-2D", "F2U"], tf: ["D"], dir: "both" }, store.get("ss_simple") || {});
+const F = Object.assign({ uni: ["SPX", "NDX", "CMD"], pat: ["2D-2U", "F2D", "2U-2D", "F2U"], tf: ["D"], dir: "both", gr: ["A", "B", "C"], min: 0 }, store.get("ss_simple") || {});
 let DATA = null, OPTS = {}, OPEN = null, LASTGEN = null;
 
 function chips(el, items, isOn, onClick) {
@@ -118,6 +120,8 @@ function renderFilters() {
   chips("#f-pat", PATS.map(([p, d]) => [p, p, d === "long" ? "long" : "short"]), v => F.pat.includes(v), v => F.pat = toggle(F.pat, v));
   chips("#f-tf", [["D", "Dzienny"], ["W", "Tygodniowy"], ["M", "Miesięczny"]], v => F.tf.includes(v), v => F.tf = toggle(F.tf, v));
   chips("#f-dir", [["long", "Long"], ["short", "Short"], ["both", "Oba"]], v => F.dir === v, v => F.dir = v);
+  chips("#f-gr", [["A", "A", "EMA+FTFC+FVG"], ["B", "B", "dwa z trzech"], ["C", "C", "jeden"]], v => F.gr.includes(v), v => F.gr = toggle(F.gr, v));
+  chips("#f-min", [["0", "Wszystkie"], ["3", "min. 3"], ["4", "min. 4"], ["5", "min. 5"], ["6", "min. 6"], ["7", "wszystkie 7"]], v => String(F.min) === v, v => F.min = +v);
 }
 
 const TRT = { D: "D+W", W: "W+M", M: "M+Q" };
@@ -125,8 +129,8 @@ const TRN = { up: "wzrostowy", down: "spadkowy", mixed: "mieszany" };
 const yes = (ok, t) => ok == null ? `<span class="na" title="${t || "brak danych"}">—</span>` : `<span class="${ok ? "y" : "n"}" title="${t || ""}">${ok ? "✓" : "✗"}</span>`;
 
 function checks(r, s) {
-  const fvgOk = !!(s.fvg_ok || (s.plan && s.plan.fvg));
-  const fz = s.plan_fvg ? `FVG ${s.plan_fvg.tf}: ${s.plan_fvg.state === "W FVG" ? "cena w strefie" : s.plan_fvg.dist + "% od ceny"}` : (s.fvg_ok ? `FVG ${s.fvg_tfs[0]}` : "brak FVG w pobliżu");
+  const fvgOk = !!s.fvg_ok, FT = { D: "W", W: "M", M: "Q" }[s.tf], FK = s.dir === "long" ? "bullish" : "bearish";
+  const fz = fvgOk ? `FVG ${FK} ${FT}: ${s.fvg_state === "W FVG" ? "cena w strefie" : s.fvg_dist + "% od ceny"}` : `brak FVG ${FK} na ${FT} w pobliżu`;
   const hasSec = !!r.sec_etf;
   return [
     ["FVG", fvgOk, fz],
@@ -148,7 +152,9 @@ function rows() {
       if (s.triggered || s.tp_hit || s.sl_hit) continue;
       if (!F.pat.includes(s.pattern) || !F.tf.includes(s.tf)) continue;
       if (F.dir !== "both" && s.dir !== F.dir) continue;
+      if (!F.gr.includes(s.grade)) continue;
       const ck = checks(r, s), n = ck.filter(c => c[1] === true).length, tot = ck.filter(c => c[1] != null).length;
+      if (F.min && n < Math.min(F.min, tot)) continue;
       out.push({ r, s, ck, n, tot });
     }
   }

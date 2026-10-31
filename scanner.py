@@ -493,7 +493,7 @@ def analyze(ticker: str, d: pd.DataFrame, meta: dict, now_ny: datetime, cfg: dic
     RULES = {"D": {"fvg": "W", "ftfc": ("D", "W"), "ema": ("D", "W", "M")},
              "W": {"fvg": "M", "ftfc": ("W", "M"), "ema": ("W", "M", "Q")},
              "M": {"fvg": "Q", "ftfc": ("M", "Q"), "ema": ("M", "Q")}}
-    PLAN_FVG = {"D": ("W", "M"), "W": ("W", "M"), "M": ("M", "Q")}
+    PLAN_FVG = {"D": ("W",), "W": ("M",), "M": ("Q",)}   # FVG tylko z wyższego interwału, kierunek setupu
     PLAN_EMA = {"D": ("D", "W"), "W": ("W", "M"), "M": ("M", "Q")}
     PLAN_SATY = {"D": "M", "W": "M", "M": "Q"}   # Saty Swing dla D/W, Position (3M) dla M
     setups = []
