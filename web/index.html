@@ -97,7 +97,6 @@ a{color:var(--acc)}
     <div class="row"><span class="lbl">Interwał</span><span id="f-tf"></span></div>
     <div class="row"><span class="lbl">Kierunek</span><span id="f-dir"></span></div>
     <div class="row"><span class="lbl">Ocena</span><span id="f-gr"></span></div>
-    <div class="row"><span class="lbl">Warunki</span><span id="f-min"></span></div>
     <div class="row"><span class="lbl">Sektor</span><select id="f-sec" class="sel" data-testid="select-sector"></select></div>
   </section>
   <aside class="panel trends" id="trends" data-testid="panel-trends"></aside>
@@ -139,7 +138,6 @@ function renderFilters() {
   chips("#f-dir", [["long", "Long"], ["short", "Short"], ["both", "Oba"]], v => F.dir === v, v => F.dir = v);
   chips("#f-gr", [["A", "A", "6–7 warunków"], ["B", "B", "4–5"], ["C", "C", "3 i mniej"]], v => F.gr.includes(v), v => F.gr = toggle(F.gr, v));
   renderSec();
-  chips("#f-min", [["0", "Wszystkie"], ["3", "min. 3"], ["4", "min. 4"], ["5", "min. 5"], ["6", "min. 6"], ["7", "wszystkie 7"]], v => String(F.min) === v, v => F.min = +v);
 }
 
 const SECPL = { "Information Technology": "Technologia", "Financials": "Finanse", "Health Care": "Ochrona zdrowia", "Industrials": "Przemysł", "Consumer Discretionary": "Dobra cykliczne", "Consumer Staples": "Dobra podstawowe", "Utilities": "Użyteczność publiczna", "Real Estate": "Nieruchomości", "Materials": "Materiały", "Communication Services": "Komunikacja", "Energy": "Energetyka" };
@@ -200,7 +198,6 @@ function rows() {
       const ck = checks(r, s), n = ck.filter(c => c[1] === true).length, tot = ck.filter(c => c[1] != null).length;
       const g = n >= 6 ? "A" : n >= 4 ? "B" : "C";   // ocena wg liczby zgodnych warunków (z 7)
       if (!F.gr.includes(g)) continue;
-      if (F.min && n < Math.min(F.min, tot)) continue;
       out.push({ r, s, ck, n, tot, g });
     }
   }
