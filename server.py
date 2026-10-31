@@ -42,14 +42,15 @@ def _load_bt():
         return None
 
 
-bt = _load_bt()
+BACKTEST_ON = os.getenv("BACKTEST", "0") == "1"   # backtest wyłączony w prostej wersji
+bt = _load_bt() if BACKTEST_ON else None
 OPT_PARAMS = dict(delta=0.7, tol=0.05, min_dte=5, max_dte=31, min_oi=0, min_vol=10, range_pct=20.0, find_otm=False)
 OPT_PARAMS_M = {**OPT_PARAMS, "min_dte": 45, "max_dte": 120}   # setupy miesięczne — dłuższe wygasania
 OPTS = {"generated_at": None, "scan": None, "params": OPT_PARAMS, "params_m": OPT_PARAMS_M, "data": {}}
 opt_state = {"running": False, "done": 0, "total": 0}
 
 
-def _opt_candidates(sc, cap=50, cap_m=20):
+def _opt_candidates(sc, cap=150, cap_m=50):
     """Setupy, dla których z automatu liczę najlepszą opcję: oczekujące, plan ≥ 4/6 lub ocena A.
     D/W — wygasania 5–31 dni, M — 60–90 dni (osobny klucz „|M”)."""
     c = []
@@ -59,7 +60,7 @@ def _opt_candidates(sc, cap=50, cap_m=20):
         for su in r["setups"]:
             if su.get("triggered") or su.get("tp_hit") or su.get("sl_hit"):
                 continue
-            if su.get("plan_score", 0) >= 4 or su.get("grade") == "A":
+            if True:   # wszystkie oczekujące; kolejność wg planu, limit cap
                 c.append((su.get("plan_score", 0) + (1 if su.get("mkt_ok") else 0) + (1 if su.get("sec_ok") else 0),
                           r["ticker"], "C" if su["dir"] == "long" else "P", su["tf"] == "M"))
     c.sort(reverse=True)
@@ -138,7 +139,7 @@ def worker(req: ScanReq, auto=False):
         today = datetime.now(WAW).strftime("%Y-%m-%d")
         del data
         gc.collect()
-        need_bt = not bt or bt.get("v") != backtest.VERSION or not str(bt.get("generated_at", "")).startswith(today)
+        need_bt = BACKTEST_ON and (not bt or bt.get("v") != backtest.VERSION or not str(bt.get("generated_at", "")).startswith(today))
 
         def after(sc=r, need_bt=need_bt):
             _precompute_options(sc)          # najpierw opcje dla najlepszych setupów (z automatu)
