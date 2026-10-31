@@ -326,8 +326,10 @@ SATY_FIBS = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.236, 1.618]
 
 def saty_levels(b: pd.DataFrame, complete: bool, price: float, n: int = 14) -> dict | None:
     """Saty ATR Levels: zamknięcie poprzedniego okresu ± frakcje ATR(14) tego okresu.
-    Tryb Swing = interwał M, Multiday = W, Day = D."""
-    k = len(b) - 1 if complete else len(b) - 2
+    Tryb Swing = interwał M, Multiday = W, Day = D.
+    Jak w TradingView: poziomy dla ostatniej świecy liczone od zamknięcia i ATR świecy poprzedniej
+    (także w weekend / po sesji — bez przeskoku na zero po zamknięciu okresu)."""
+    k = len(b) - 2
     if k < n + 1:
         return None
     atr = float(atr_series(b, n).iloc[k])
