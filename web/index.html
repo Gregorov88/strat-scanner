@@ -247,7 +247,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
           <button data-v="all" class="on">Wszystkie</button><button data-v="ndx">Nasdaq 100</button><button data-v="spx">S&amp;P 500</button>
         </div></div>
       <div class="field"><label>Sektor</label><select id="sector" data-testid="select-sector"><option value="">Wszystkie sektory</option></select></div>
-      <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="yahoo">Yahoo</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
+      <div class="field"><label>Źródło opcji</label><div class="seg" id="osrc" data-testid="seg-source"><button data-v="yahoo">Cboe / Yahoo</button><button data-v="ibkr">IBKR (TWS)</button></div><div class="hint" id="srchint"></div></div>
       <div class="field"><label>Autoodświeżanie</label><label class="toggle" data-testid="toggle-auto"><input type="checkbox" id="auto"><span class="sw"></span>co 30 min w sesji</label></div>
       <div class="field"><label>Eksport</label><a class="tv" id="csv" href="#" data-testid="link-export">Pobierz CSV</a></div>
     </div>
@@ -306,7 +306,7 @@ footer{color:var(--faint);font-size:12px;padding:0 0 40px}
       <b>Status:</b> „Oczekuje” = świeca sygnałowa zamknięta, czekamy na przebicie triggera. „W trakcie” = świeca sygnałowa jeszcze się formuje.<br>
       <b>Ocena</b> — trzy warunki: (1) FTFC — setup dzienny D+W, tygodniowy W+M (liczone dla ceny triggera: long powyżej otwarcia bieżącej świecy, short poniżej); (2) EMA10/20 — setup dzienny zgodna na D, W i M, tygodniowy na W, M i Q (long: EMA10 &gt; EMA20, short: EMA10 &lt; EMA20); (3) FVG — setup dzienny w FVG tygodniowym lub ≤ 3% od niego, tygodniowy w FVG miesięcznym lub ≤ 3% (long: bycze, short: niedźwiedzie). <b>A</b> = wszystkie trzy, <b>B</b> = dwa z trzech, <b>C</b> = jeden. Interwały niższe niż dzienny nie są brane pod uwagę.
     </div>
-    Dane cenowe: Yahoo Finance (dzienne, agregowane do W/M/Q). Opcje: Yahoo (opóźnione ok. 15 min) albo IBKR z Twojego TWS przez lokalny most. Narzędzie analityczne, nie stanowi rekomendacji inwestycyjnej.
+    Dane cenowe: Yahoo Finance (dzienne, agregowane do W/M/Q). Opcje: Cboe z grekami, zapasowo Yahoo (opóźnione ok. 15 min) albo IBKR z Twojego TWS przez lokalny most. Narzędzie analityczne, nie stanowi rekomendacji inwestycyjnej.
   </footer>
 </main>
 
@@ -595,7 +595,7 @@ S.cfg = { ...DEF, ...JSON.parse(store.get("ss_cfg") || "{}") };
 S.optCache = {}; S.optSel = {}; S.tab = "setups"; S.tsort = {};
 S.wf = { dir: "all", min: 4, trend: 1 }; S.ff = { dir: "all", ema: 4 }; S.mf = { dir: "all" }; S.bf = { tickers: "", years: 0 };
 const saveCfg = () => store.set("ss_cfg", JSON.stringify(S.cfg));
-const srcName = () => S.cfg.src === "ibkr" ? "IBKR" : "Yahoo";
+const srcName = () => S.cfg.src === "ibkr" ? "IBKR" : "Cboe/Yahoo";
 const optCfgTxt = () => `· delta ${S.cfg.delta} ± ${S.cfg.tol} · ${S.cfg.min_dte}–${S.cfg.max_dte} dni · OI ≥ ${S.cfg.oi} · wolumen ≥ ${S.cfg.vol} · ${S.cfg.otm ? "OTM" : "ITM"}`;
 function setSrc(v) {
   S.cfg.src = v; saveCfg();
@@ -668,7 +668,7 @@ async function fetchOptions(t, right) {
       const r = await fetch(c.bridge.replace(/\/$/, "") + "/options?" + q, { signal: ctl.signal }); clearTimeout(tm);
       const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j;
     } catch (e) {
-      const j = await fetchYahoo(t, q); j.fallback = "Most IBKR niedostępny (" + (e.message || e) + ") — pokazuję dane Yahoo."; return j;
+      const j = await fetchYahoo(t, q); j.fallback = "Most IBKR niedostępny (" + (e.message || e) + ") — pokazuję dane opóźnione (Cboe/Yahoo)."; return j;
     }
   }
   return fetchYahoo(t, q);
@@ -705,7 +705,7 @@ function showOptions(r, su, res) {
   if (res.error) { $("#optres").innerHTML = `<div class="warn">${res.error}</div>`; return; }
   const key = optKey(r.ticker, su);
   const sel = res.rows.find(o => o.contract === S.optSel[key]) || res.best;
-  const head = `<div class="note" style="margin-bottom:8px">${res.fallback ? `<div class="warn" style="margin-bottom:6px">${res.fallback}</div>` : ""}Źródło: <b>${res.source === "ibkr" ? "IBKR" : "Yahoo"}</b> · cena ${fmt(res.spot)} · ${res.asof} · wygasania: ${res.expirations.join(", ") || "brak w oknie"} · ${res.rows.length} z ${res.quoted} kontraktów spełnia filtry${res.no_delta ? ` · ${res.no_delta} bez delty` : ""}. Zielone: OI &gt; 250 i Ext/Price &lt; 30%. Kliknij wiersz, aby wybrać.</div>`;
+  const head = `<div class="note" style="margin-bottom:8px">${res.fallback ? `<div class="warn" style="margin-bottom:6px">${res.fallback}</div>` : ""}Źródło: <b>${{ibkr: "IBKR", cboe: "Cboe (delta z giełdy)", yahoo: "Yahoo (delta z Blacka-Scholesa)"}[res.source] || res.source}</b> · cena ${fmt(res.spot)} · ${res.asof} · wygasania: ${res.expirations.join(", ") || "brak w oknie"} · ${res.rows.length} z ${res.quoted} kontraktów spełnia filtry${res.no_delta ? ` · ${res.no_delta} bez delty` : ""}. Zielone: OI &gt; 250 i Ext/Price &lt; 30%. Kliknij wiersz, aby wybrać.</div>`;
   if (!res.rows.length) { $("#optres").innerHTML = head + `<div class="warn">Brak kontraktów dla tych filtrów. Przed otwarciem sesji ustaw wolumen 0 w Ustawieniach albo poszerz tolerancję delty.</div>`; return; }
   const tb = `<div class="oscroll"><table class="optt mono"><thead><tr><th>Wygasa</th><th>DTE</th><th>Strike</th><th>Cena</th><th>Bid</th><th>Ask</th><th>Spread %</th><th>OI</th><th>Vol</th><th>Wewn.</th><th>Zewn.</th><th>Ext/Int</th><th>Ext/Price</th><th>Delta</th><th>Kwot.</th></tr></thead><tbody>
     ${res.rows.map((o, i) => `<tr data-i="${i}" class="${o.green ? "gr" : ""} ${sel && o.contract === sel.contract ? "sel" : ""}"><td>${o.expiration}</td><td>${o.dte}</td><td>${fmt(o.strike)}</td><td>${fmt(o.last)}</td><td>${fmt(o.bid)}</td><td>${fmt(o.ask)}</td><td>${o.spread_pct == null ? "—" : fmt(o.spread_pct, 1)}</td><td>${o.oi.toLocaleString("pl-PL")}</td><td>${o.volume.toLocaleString("pl-PL")}</td><td>${fmt(o.intrinsic)}</td><td>${fmt(o.extrinsic)}</td><td>${fmt(o.ext_int, 1)}%</td><td>${fmt(o.ext_price, 1)}%</td><td>${o.delta == null ? "n/a" : fmt(o.delta, 3)}</td><td>${o.quote}</td></tr>`).join("")}
@@ -931,7 +931,7 @@ function renderCfg(el) {
     <div class="field"><label>Strona</label><div class="seg" id="cotm"><button data-v="0" class="${!c.otm ? "on" : ""}">ITM</button><button data-v="1" class="${c.otm ? "on" : ""}">OTM</button></div></div>
   </div></div>
   <div class="box" style="margin-bottom:14px"><h4>Źródło opcji: IBKR (TWS)</h4>
-    <div class="help">Dane cenowe do skanu zawsze pochodzą z Yahoo (działa też poza sesją i na telefonie). Opcje możesz brać z IBKR — przeglądarka łączy się wtedy z małym programem na Twoim komputerze, który pyta TWS tak samo jak ibquery.py (tylko odczyt, nie składa zleceń). Gdy most nie odpowiada (np. na telefonie), aplikacja automatycznie użyje Yahoo.<br><br>
+    <div class="help">Dane cenowe do skanu zawsze pochodzą z Yahoo (działa też poza sesją i na telefonie). Opcje możesz brać z IBKR — przeglądarka łączy się wtedy z małym programem na Twoim komputerze, który pyta TWS tak samo jak ibquery.py (tylko odczyt, nie składa zleceń). Gdy most nie odpowiada (np. na telefonie), aplikacja automatycznie użyje danych opóźnionych z Cboe (z grekami), a zapasowo z Yahoo.<br><br>
     <b>1.</b> W TWS: Global Configuration → API → Settings → zaznacz <b>Enable ActiveX and Socket Clients</b>, port <b>7497</b>, Trusted IP <b>127.0.0.1</b>.<br>
     <b>2.</b> Pobierz oba pliki do jednego folderu: <a class="tv" href="${API}/download/ibkr_bridge.py" data-testid="link-bridge-py">ibkr_bridge.py</a> <a class="tv" href="${API}/download/start_ibkr_bridge.bat" data-testid="link-bridge-bat">start_ibkr_bridge.bat</a><br>
     <b>3.</b> Uruchom <b>start_ibkr_bridge.bat</b> (za pierwszym razem zainstaluje ib_insync) i zostaw okno otwarte.<br>

@@ -1,4 +1,6 @@
 import gc
+import warnings
+warnings.filterwarnings("ignore")
 import io
 import pickle
 import json
@@ -171,10 +173,11 @@ def ticker(t: str):
 def options_ep(t: str, type: str = "C", delta: float | None = 0.7, tol: float = 0.05, min_dte: int = 5,
                max_dte: int = 31, oi: int = 0, vol: int = 10, range: float = 20.0, otm: int = 0):
     try:
-        return opt.yahoo_chain(t.upper(), "P" if type.upper().startswith("P") else "C", delta, tol,
-                               min_dte, max_dte, oi, vol, range, bool(otm))
+        return opt.delayed_chain(t.upper(), right="P" if type.upper().startswith("P") else "C", delta=delta,
+                                 tol=tol, min_dte=min_dte, max_dte=max_dte, min_oi=oi, min_vol=vol,
+                                 range_pct=range, find_otm=bool(otm))
     except Exception as e:
-        raise HTTPException(502, f"Yahoo: {e}")
+        raise HTTPException(502, f"Opcje (Cboe/Yahoo): {e}")
 
 
 @app.get("/api/backtest")

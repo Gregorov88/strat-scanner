@@ -154,9 +154,99 @@ def yahoo_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: f
             "asof": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")}
 
 
+def _get_json(url):
+    import requests
+    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (StratScanner)"}, timeout=20, allow_redirects=True)
+    r.raise_for_status()
+    return r.json()
+
+
+def cboe_chain(ticker: str, right: str = "C", delta: float | None = 0.7, tol: float = 0.05,
+               min_dte: int = 5, max_dte: int = 31, min_oi: int = 0, min_vol: int = 10,
+               range_pct: float = 30.0, find_otm: bool = False) -> dict:
+    """Opcje z publicznego API Cboe (opóźnione ~15 min) — z prawdziwymi grekami (delta, IV)."""
+    import re
+    d = None
+    for sym in dict.fromkeys([ticker.upper(), ticker.upper().replace(".", ""), ticker.upper().replace(".", "/")]):
+        try:
+            d = _get_json(f"https://cdn.cboe.com/api/global/delayed_quotes/options/{sym}.json")["data"]
+            break
+        except Exception:
+            continue
+    if not d:
+        raise RuntimeError("Cboe: brak danych")
+    spot = float(d.get("current_price") or d.get("close"))
+    today = datetime.now(NY).date()
+    lo, hi = spot * (1 - range_pct / 100), spot * (1 + range_pct / 100)
+    raw, exps = [], set()
+    for x in d.get("options", []):
+        m = re.match(r"^(.+?)(\d{6})([CP])(\d{8})$", x.get("option", ""))
+        if not m or m.group(3) != right:
+            continue
+        e = date(2000 + int(m.group(2)[:2]), int(m.group(2)[2:4]), int(m.group(2)[4:]))
+        dte = (e - today).days
+        if not (min_dte <= dte <= max_dte):
+            continue
+        exps.add(e.isoformat())
+        K = int(m.group(4)) / 1000
+        if not (lo <= K <= hi):
+            continue
+        itm = spot > K if right == "C" else spot < K
+        if itm == find_otm:
+            continue
+        bid, ask = _num(x.get("bid")), _num(x.get("ask"))
+        if not (bid and ask and ask >= bid):
+            bid = ask = None
+        mid = (bid + ask) / 2 if bid else None
+        vol = int(_num(x.get("volume")) or 0)
+        lastp = _num(x.get("last_trade_price")) or 0.0
+        last = lastp if (vol > 0 and lastp > 0) else (mid or lastp)
+        dl = _num(x.get("delta"))
+        iv = _num(x.get("iv"))
+        if not dl or not iv:          # brak greków — licz z Blacka-Scholesa
+            T = max(dte + 0.5, 0.5) / 365
+            ref = mid or last
+            ivc = implied_vol(ref, spot, K, T, right) if ref else None
+            if ivc:
+                iv, dl = ivc, bs_delta(spot, K, T, ivc, right)
+            elif not dl:
+                dl = None
+        raw.append({
+            "contract": x["option"], "expiration": e.isoformat(), "dte": dte, "strike": K,
+            "last": round(float(last), 2), "bid": bid, "ask": ask,
+            "spread": round(ask - bid, 2) if bid else None,
+            "spread_pct": round((ask - bid) / mid * 100, 2) if bid else None,
+            "quote": "DELAYED" if bid else "N/A", "volume": vol, "oi": int(_num(x.get("open_interest")) or 0),
+            "delta": round(dl, 3) if dl is not None else None, "iv": round(iv * 100, 1) if iv else None,
+        })
+    rows, no_delta = metrics(raw, spot, right, find_otm, min_oi, min_vol, delta, tol)
+    return {"ticker": ticker, "right": right, "spot": round(spot, 2), "source": "cboe",
+            "expirations": sorted(exps), "quoted": len(raw), "no_delta": no_delta,
+            "rows": rows, "best": pick_best(rows, delta),
+            "asof": datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")}
+
+
+def delayed_chain(ticker: str, **kw) -> dict:
+    """Cboe (z grekami) jako pierwsze źródło, Yahoo jako zapas."""
+    try:
+        r = cboe_chain(ticker, **kw)
+        if r["quoted"]:
+            return r
+    except Exception:
+        r = None
+    try:
+        y = yahoo_chain(ticker, **kw)
+        if y["quoted"] or r is None:
+            return y
+    except Exception:
+        if r is None:
+            raise
+    return r
+
+
 if __name__ == "__main__":
     import json, sys
-    r = yahoo_chain(sys.argv[1] if len(sys.argv) > 1 else "AAPL", sys.argv[2] if len(sys.argv) > 2 else "C")
+    r = delayed_chain(sys.argv[1] if len(sys.argv) > 1 else "AAPL", right=sys.argv[2] if len(sys.argv) > 2 else "C")
     print(json.dumps({k: v for k, v in r.items() if k != "rows"}, indent=1))
     for x in r["rows"][:15]:
         print(x)
