@@ -125,7 +125,7 @@ const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } cat
 const PATS = [["2D-2U", "long"], ["F2D", "long"], ["2U-2U", "long"], ["2U-2D", "short"], ["F2U", "short"], ["2D-2D", "short"]];
 const F = Object.assign({ uni: ["SPX", "NDX", "CMD"], pat: PATS.map(p => p[0]), tf: ["D"], dir: "both", gr: ["A", "B", "C"], min: 0 }, store.get("ss_simple") || {});
 if (!F.v2) { F.pat = [...new Set([...F.pat, "2U-2U", "2D-2D"])]; F.v2 = 1; store.set("ss_simple", F); }
-let DATA = null, OPTS = {}, OPEN = null, LASTGEN = null;
+let ST = null, DATA = null, OPTS = {}, OPEN = null, LASTGEN = null;
 
 function chips(el, items, isOn, onClick) {
   $(el).innerHTML = items.map(([v, l, s]) => `<button class="ch ${isOn(v) ? "on" : ""}" data-v="${v}">${l}${s ? `<span class="s">${s}</span>` : ""}</button>`).join(" ");
@@ -158,7 +158,7 @@ const TA = t => t === "up" ? `<span class="tu" title="wzrostowy">▲</span>` : t
 const pct = v => v == null ? "—" : `<span class="${v >= 0 ? "pp" : "pn"}">${v > 0 ? "+" : ""}${fmt(v, 1)}%</span>`;
 function renderTrends() {
   const el = $("#trends"), c = DATA && DATA.context; if (!el) return;
-  if (!c) { el.innerHTML = `<div class="h">Trendy</div><div class="meta">Brak danych</div>`; return; }
+  if (!c) { el.innerHTML = `<div class="h">Trendy</div><div class="meta">${ST && ST.running ? "Ładowanie — pojawią się po zakończeniu skanu." : "Brak danych"}</div>`; return; }
   const hd = `<tr><th></th><th class="c">D</th><th class="c">W</th><th class="c">M</th><th class="r">1 dz.</th><th class="r">1 mies.</th></tr>`;
   const row = (x, label, cls = "", sec) => `<tr class="${cls}" ${sec ? `data-sec="${sec}"` : ""}><td><b>${x.ticker}</b> <span class="meta">${label}</span></td><td class="c">${TA(x.trend_D)}</td><td class="c">${TA(x.trend_W)}</td><td class="c">${TA(x.trend_M)}</td><td class="r">${pct(x.chg)}</td><td class="r">${pct(x.m1)}</td></tr>`;
   el.innerHTML = `<div class="h"><span>Rynki</span><span>EMA 10/20: D=D+W · W=W+M · M=M+Q</span></div>
@@ -231,7 +231,7 @@ function render() {
   const L = rows();
   const nA = L.filter(x => x.g === "A").length;
   $("#sum").textContent = DATA ? `${L.length} setupów spełnia Twoje ustawienia (ocena A: ${nA}). Najlepsze na górze. Kliknij wiersz po szczegóły.` : "";
-  if (!DATA) { $("#out").innerHTML = `<div class="empty">Brak wyników — kliknij „Skanuj rynek”.</div>`; return; }
+  if (!DATA) { $("#out").innerHTML = `<div class="empty">${ST && ST.running ? `Serwer pobiera dane i skanuje rynek (${Math.round((ST.progress || 0) * 100)}%). Po restarcie trwa to ok. 5–10 minut — wyniki pojawią się same, nie trzeba odświeżać.` : "Brak wyników — kliknij „Skanuj rynek”."}</div>`; renderTrends(); return; }
   if (!L.length) { $("#out").innerHTML = `<div class="empty">Brak setupów dla tych ustawień. Zmień interwał albo dodaj inne setupy.</div>`; return; }
   const head = `<thead><tr><th>Spółka</th><th>Setup</th><th class="r">Wejście</th><th class="r">SL</th><th class="r">Cel</th><th class="r">R:R</th><th class="r">Do wejścia</th>
     <th class="c">FVG</th><th class="c">EMA</th><th class="c">FTFC</th><th class="c">Keltner</th><th class="c">ATR</th><th class="c">Rynek</th><th class="c">Sektor</th><th class="c">Spełnione</th><th class="c">Ocena</th><th>Opcja (wg skryptu)</th></tr></thead>`;
@@ -292,15 +292,16 @@ function autoOpt(list) {
 async function load() {
   try {
     const d = await (await fetch(API + "/api/results")).json();
-    if (d && d.results) { DATA = d; LASTGEN = d.generated_at; renderSec(); }
+    if (d && d.results && d.generated_at) { DATA = d; LASTGEN = d.generated_at; renderSec(); }
   } catch (e) {}
   try { const o = await (await fetch(API + "/api/opts")).json(); OPTS = Object.assign({}, o.data || {}, OPTS); } catch (e) {}
-  $("#meta").textContent = DATA ? `Skan: ${DATA.generated_at} · dane do ${DATA.data_date} · ${DATA.count} instrumentów` : "Brak skanu";
+  $("#meta").textContent = DATA ? `Skan: ${DATA.generated_at} · dane do ${DATA.data_date} · ${DATA.count} instrumentów` : (ST && ST.running ? "Pierwszy skan w toku…" : "Brak skanu");
   render();
 }
 async function poll() {
   try {
-    const st = await (await fetch(API + "/api/status")).json();
+    const st = await (await fetch(API + "/api/status")).json(); ST = st;
+    if (!DATA) { $("#meta").textContent = st.running ? "Pierwszy skan w toku…" : "Brak skanu"; render(); }
     const p = $("#prog");
     if (st.running) { p.style.display = "block"; p.firstElementChild.style.width = Math.round(st.progress * 100) + "%"; $("#scan").disabled = true; $("#scan").textContent = st.stage || "Skanuję…"; }
     else { p.style.display = "none"; $("#scan").disabled = false; $("#scan").textContent = "Skanuj rynek"; }
