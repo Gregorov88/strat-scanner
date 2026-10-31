@@ -1,6 +1,6 @@
 """
 Strat Scanner — Nasdaq 100 + S&P 500
-Silnik analizy: The Strat (2D-2U, F2D / 2U-2D, F2U) na D, W i M, FTFC, EMA10/EMA20, FVG (W/M/Q).
+Silnik analizy: The Strat (2D-2U, F2D, 2U-2U / 2U-2D, F2U, 2D-2D) na D, W i M, FTFC, EMA10/EMA20, FVG (W/M/Q).
 
 Może działać:
   1) jako moduł backendu aplikacji (server.py),
@@ -210,6 +210,8 @@ PATTERNS = [
     ("F2D",     "long",  lambda lab, typ, k: lab(k) == "F2D"),
     ("2U-2D",   "short", lambda lab, typ, k: lab(k) == "2U"),
     ("F2U",     "short", lambda lab, typ, k: lab(k) == "F2U"),
+    ("2U-2U",   "long",  lambda lab, typ, k: lab(k) == "2U"),   # kontynuacja w górę
+    ("2D-2D",   "short", lambda lab, typ, k: lab(k) == "2D"),   # kontynuacja w dół
 ]
 
 PAT_DESC = {
@@ -217,6 +219,8 @@ PAT_DESC = {
     "F2D": "Świeca F2D: wybiła low poprzedniej i zamknęła się na zielono. Wejście: przebicie jej high.",
     "2U-2D": "Świeca sygnałowa 2U (zielona). Wejście: przebicie jej low → kolejna świeca 2D (odwrócenie w dół).",
     "F2U": "Świeca F2U: wybiła high poprzedniej i zamknęła się na czerwono. Wejście: przebicie jej low.",
+    "2U-2U": "Świeca sygnałowa 2U (zielona). Wejście: przebicie jej high → kolejna świeca 2U (kontynuacja w górę).",
+    "2D-2D": "Świeca sygnałowa 2D (czerwona). Wejście: przebicie jej low → kolejna świeca 2D (kontynuacja w dół).",
 }
 
 

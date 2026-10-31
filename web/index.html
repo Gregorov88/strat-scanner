@@ -67,6 +67,7 @@ a{color:var(--acc)}
 }
 .chk .k{display:none}
 @media (max-width:820px){.chk .k{display:inline;font-size:11px;color:var(--muted);margin-right:2px}.chk span.w{display:inline-flex;align-items:center;gap:3px}}
+.sel{background:var(--bg,#0d1117);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;min-width:260px;max-width:100%}
 </style>
 </head>
 <body>
@@ -85,6 +86,7 @@ a{color:var(--acc)}
     <div class="row"><span class="lbl">Kierunek</span><span id="f-dir"></span></div>
     <div class="row"><span class="lbl">Ocena</span><span id="f-gr"></span></div>
     <div class="row"><span class="lbl">Warunki</span><span id="f-min"></span></div>
+    <div class="row"><span class="lbl">Sektor</span><select id="f-sec" class="sel" data-testid="select-sector"></select></div>
   </section>
 
   <p class="sum" id="sum"></p>
@@ -106,8 +108,9 @@ const $ = s => document.querySelector(s);
 const fmt = (v, d = 2) => v == null ? "—" : Number(v).toLocaleString("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
 
-const PATS = [["2D-2U", "long"], ["F2D", "long"], ["2U-2D", "short"], ["F2U", "short"]];
-const F = Object.assign({ uni: ["SPX", "NDX", "CMD"], pat: ["2D-2U", "F2D", "2U-2D", "F2U"], tf: ["D"], dir: "both", gr: ["A", "B", "C"], min: 0 }, store.get("ss_simple") || {});
+const PATS = [["2D-2U", "long"], ["F2D", "long"], ["2U-2U", "long"], ["2U-2D", "short"], ["F2U", "short"], ["2D-2D", "short"]];
+const F = Object.assign({ uni: ["SPX", "NDX", "CMD"], pat: PATS.map(p => p[0]), tf: ["D"], dir: "both", gr: ["A", "B", "C"], min: 0 }, store.get("ss_simple") || {});
+if (!F.v2) { F.pat = [...new Set([...F.pat, "2U-2U", "2D-2D"])]; F.v2 = 1; store.set("ss_simple", F); }
 let DATA = null, OPTS = {}, OPEN = null, LASTGEN = null;
 
 function chips(el, items, isOn, onClick) {
@@ -121,9 +124,21 @@ function renderFilters() {
   chips("#f-tf", [["D", "Dzienny"], ["W", "Tygodniowy"], ["M", "Miesięczny"]], v => F.tf.includes(v), v => F.tf = toggle(F.tf, v));
   chips("#f-dir", [["long", "Long"], ["short", "Short"], ["both", "Oba"]], v => F.dir === v, v => F.dir = v);
   chips("#f-gr", [["A", "A", "EMA+FTFC+FVG"], ["B", "B", "dwa z trzech"], ["C", "C", "jeden"]], v => F.gr.includes(v), v => F.gr = toggle(F.gr, v));
+  renderSec();
   chips("#f-min", [["0", "Wszystkie"], ["3", "min. 3"], ["4", "min. 4"], ["5", "min. 5"], ["6", "min. 6"], ["7", "wszystkie 7"]], v => String(F.min) === v, v => F.min = +v);
 }
 
+const SECPL = { "Information Technology": "Technologia", "Financials": "Finanse", "Health Care": "Ochrona zdrowia", "Industrials": "Przemysł", "Consumer Discretionary": "Dobra luksusowe", "Consumer Staples": "Dobra podstawowe", "Utilities": "Użyteczność publiczna", "Real Estate": "Nieruchomości", "Materials": "Materiały", "Communication Services": "Komunikacja", "Energy": "Energetyka" };
+const secLabel = r => r.sec_etf ? `${SECPL[r.sector] || r.sector} — ${r.sec_etf}` : `Surowce: ${r.sector}`;
+function renderSec() {
+  const el = $("#f-sec"); if (!el) return;
+  const m = new Map();
+  if (DATA) for (const r of DATA.results) if (r.indices.some(i => F.uni.includes(i))) m.set(r.sector, (m.get(r.sector) || { l: secLabel(r), n: 0, etf: !!r.sec_etf })), m.get(r.sector).n++;
+  const opts = [...m.entries()].sort((a, b) => (b[1].etf - a[1].etf) || a[1].l.localeCompare(b[1].l, "pl"));
+  if (F.sec && !m.has(F.sec)) F.sec = "";
+  el.innerHTML = `<option value="">Wszystkie sektory</option>` + opts.map(([k, v]) => `<option value="${k}" ${F.sec === k ? "selected" : ""}>${v.l} (${v.n})</option>`).join("");
+  el.onchange = () => { F.sec = el.value; store.set("ss_simple", F); render(); };
+}
 const TRT = { D: "D+W", W: "W+M", M: "M+Q" };
 const TRN = { up: "wzrostowy", down: "spadkowy", mixed: "mieszany" };
 const yes = (ok, t) => ok == null ? `<span class="na" title="${t || "brak danych"}">—</span>` : `<span class="${ok ? "y" : "n"}" title="${t || ""}">${ok ? "✓" : "✗"}</span>`;
@@ -148,6 +163,7 @@ function rows() {
   const out = [];
   for (const r of DATA.results) {
     if (!r.indices.some(i => F.uni.includes(i))) continue;
+    if (F.sec && r.sector !== F.sec) continue;
     for (const s of r.setups) {
       if (s.triggered || s.tp_hit || s.sl_hit) continue;
       if (!F.pat.includes(s.pattern) || !F.tf.includes(s.tf)) continue;
@@ -206,7 +222,7 @@ function render() {
       <div><b>Wejście:</b> ${s.dir === "long" ? "przebicie high" : "przebicie low"} ${fmt(s.entry)} · <b>SL:</b> ${fmt(s.sl)}</div>
       <div><b>Cel:</b> ${fmt(s.tp_plan)} ${s.tp == null && s.saty_tp_lvl ? "(poziom ATR " + s.saty_tp_lvl + ", brak pivota)" : "(najbliższy pivot)"} · <b>R:R</b> ${fmt(s.rr_plan)}</div>
       ${x.ck.map(c => `<div>${yes(c[1])} <b>${c[0]}:</b> ${c[2]}</div>`).join("")}
-      <div><b>Sektor:</b> ${r.sec_etf ? r.sec_etf + " · " : ""}${r.sector}</div>
+      <div><b>Sektor:</b> ${secLabel(r)}</div>
       <div style="grid-column:1/-1" class="${ov.c}"><b>Opcja:</b> ${ov.long}</div>
       <div><a target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.tv || r.ticker.replace("-", "."))}">Otwórz w TradingView ↗</a></div>
     </div></td></tr>` : "";
@@ -246,7 +262,7 @@ function autoOpt(list) {
 async function load() {
   try {
     const d = await (await fetch(API + "/api/results")).json();
-    if (d && d.results) { DATA = d; LASTGEN = d.generated_at; }
+    if (d && d.results) { DATA = d; LASTGEN = d.generated_at; renderSec(); }
   } catch (e) {}
   try { const o = await (await fetch(API + "/api/opts")).json(); OPTS = Object.assign({}, o.data || {}, OPTS); } catch (e) {}
   $("#meta").textContent = DATA ? `Skan: ${DATA.generated_at} · dane do ${DATA.data_date} · ${DATA.count} instrumentów` : "Brak skanu";
